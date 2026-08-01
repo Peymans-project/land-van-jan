@@ -44,6 +44,33 @@ function App() {
     window.addEventListener('popstate', sync); return () => window.removeEventListener('popstate', sync);
   }, []);
   useEffect(() => { document.title = pages[path].title; document.querySelector('meta[name="description"]')?.setAttribute('content', pages[path].description); }, [path]);
+  useEffect(() => {
+    const media = [...document.querySelectorAll('.hero > img, .page-hero > img, .timeline-visual img, .story-grid img, .membership img, .page-story figure img, .gallery-grid img')];
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    let frame;
+    const update = () => {
+      frame = undefined;
+      if (reducedMotion.matches) return;
+      const viewportCenter = window.innerHeight / 2;
+      media.forEach(image => {
+        const rect = image.parentElement.getBoundingClientRect();
+        const distance = (rect.top + rect.height / 2 - viewportCenter) / window.innerHeight;
+        const offset = Math.max(-32, Math.min(32, distance * -28));
+        image.style.setProperty('--land-scroll-offset', `${offset}px`);
+      });
+    };
+    const requestUpdate = () => { if (!frame) frame = requestAnimationFrame(update); };
+    update();
+    window.addEventListener('scroll', requestUpdate, { passive: true });
+    window.addEventListener('resize', requestUpdate);
+    reducedMotion.addEventListener('change', requestUpdate);
+    return () => {
+      window.removeEventListener('scroll', requestUpdate);
+      window.removeEventListener('resize', requestUpdate);
+      reducedMotion.removeEventListener('change', requestUpdate);
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, [path]);
   const authenticate = async ({ mode, name, email, password, consent }) => {
     const normalizedEmail = email.trim().toLowerCase();
     if (!normalizedEmail || password.length < 10) throw new Error('Gebruik een geldig e-mailadres en een wachtwoord van minimaal 10 tekens.');

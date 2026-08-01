@@ -134,3 +134,141 @@ footer { background:#102b1e; color:#e8ede4; display:flex; justify-content:space-
 .form-status { margin:0; color:#a44724; font-size:12px; line-height:1.4; }
 .login-panel [disabled] { opacity:.7; cursor:wait; }
 @media (max-width:800px) { .member-link { display:block!important; } }
+
+/* The land images should travel with the page instead of feeling like a fixed
+   background. Browsers with scroll-linked animation support get a very subtle
+   editorial drift; every other browser keeps the same natural document scroll. */
+.hero > img,
+.page-hero > img,
+.timeline-visual img,
+.story-grid img,
+.membership img,
+.page-story figure img,
+.gallery-grid img {
+  will-change: transform;
+  transform: translate3d(0, var(--land-scroll-offset, 0px), 0) scale(1.04);
+  transition: transform 80ms linear;
+}
+
+.gallery-grid figure:hover img { transform: translate3d(0, var(--land-scroll-offset, 0px), 0) scale(1.065); }
+
+@media (prefers-reduced-motion: reduce) {
+  .hero > img,
+  .page-hero > img,
+  .timeline-visual img,
+  .story-grid img,
+  .membership img,
+  .page-story figure img,
+  .gallery-grid img {
+    animation: none !important;
+    transform: scale(1.04) !important;
+    transition: none !important;
+  }
+}
+
+/* Mobile is a deliberately composed version of the same site: one source and
+   one build, with compact navigation, calmer rhythm and single-column content. */
+@media (max-width: 800px) {
+  body { overflow-x: hidden; }
+
+  .site-header {
+    align-items: flex-start;
+    padding: 20px 20px 0;
+  }
+
+  .wordmark { position:relative; z-index:2; font-size:25px; line-height:.84; }
+  .wordmark small { margin-top:7px; font-size:9px; }
+
+  .site-header nav {
+    position:absolute;
+    top:84px;
+    left:20px;
+    right:0;
+    z-index:2;
+    display:flex;
+    gap:8px;
+    overflow-x:auto;
+    padding:0 20px 8px 0;
+    scrollbar-width:none;
+  }
+
+  .site-header nav::-webkit-scrollbar { display:none; }
+  .site-header nav button,
+  .site-header nav button:not(:last-child),
+  .site-header .member-link {
+    display:block !important;
+    flex:0 0 auto;
+    border:1px solid rgba(255,255,255,.48);
+    border-radius:999px;
+    background:rgba(10,35,24,.38);
+    backdrop-filter:blur(10px);
+    color:#fff;
+    padding:8px 11px;
+    font-size:11px;
+  }
+
+  .site-header nav button.active { background:#fffdf7; color:#173828; border-color:#fffdf7; }
+  .site-header .member-link { margin-left:0; }
+
+  .hero { min-height:920px; }
+  .hero-copy { max-width:none; padding:0 20px 435px; }
+  .hero-land h1 { font-size:23vw; line-height:.71; letter-spacing:-.085em; margin-left:-3px; margin-bottom:26px; }
+  .hero-copy>p:not(.eyebrow) { max-width:290px; font-size:15px; }
+
+  .paths {
+    left:20px;
+    right:20px;
+    bottom:-52px;
+    border-radius:20px;
+    overflow:hidden;
+    box-shadow:none;
+  }
+
+  .paths button { min-height:126px; padding:21px 23px; }
+  .paths strong { font-size:25px; }
+  .paths span { margin-top:7px; max-width:235px; font-size:12px; }
+  .paths button>b { right:22px; bottom:21px; font-size:21px; }
+  .route { padding-top:130px; }
+  .section { padding:74px 20px; }
+  .section-intro { margin-bottom:28px; }
+  h2 { font-size:clamp(39px,11vw,55px); line-height:.93; }
+
+  .route-heading>p,
+  .section-intro>p,
+  .page-gallery .section-intro>p { max-width:100%; margin-top:18px; font-size:14px; }
+  .timeline { gap:26px 10px; }
+  .timeline-label { min-height:64px; }
+  .timeline-label b { font-size:19px; }
+  .timeline img,.timeline-visual { height:154px; min-height:154px; }
+  .timeline article>p { margin:8px 2px 0; font-size:11px; }
+
+  .programme { padding-top:74px; }
+  .activity { grid-template-columns:49px 1fr; gap:8px 14px; padding:23px 0; }
+  .date strong { font-size:33px; }
+  .activity h3 { font-size:24px; }
+
+  .membership { grid-template-columns:1fr; }
+  .membership>div { padding:72px 20px 52px; }
+  .membership img { height:330px; }
+  .membership h2 { font-size:45px; }
+
+  .page-hero { min-height:720px; }
+  .page-hero>div:last-child { padding:220px 20px 36px; width:100%; }
+  .page-hero h1 { font-size:16vw; line-height:.84; margin-bottom:18px; }
+  .page-hero p:not(.eyebrow) { font-size:15px; max-width:340px; margin-bottom:24px; }
+
+  .page-story { grid-template-columns:1fr; gap:32px; padding:72px 20px; }
+  .page-story figure { min-height:330px; order:-1; }
+  .page-story p:not(.eyebrow) { font-size:15px; }
+  .page-story ul { gap:11px; margin-top:23px; }
+
+  .gallery-grid { gap:12px; }
+  .gallery-grid figure,.gallery-grid figure:first-child { min-height:260px; border-radius:14px; }
+  .gallery-grid figcaption { padding:16px; font-size:21px; }
+
+  .page-quote { padding:76px 20px; }
+  .page-quote p { font-size:clamp(35px,10vw,52px); }
+  .footer-top { padding:48px 20px 35px; }
+  .footer-bottom { padding:24px 20px; }
+  .footer-nav { gap:13px 18px; }
+}
