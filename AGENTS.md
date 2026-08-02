@@ -10,7 +10,9 @@ Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts
 
 ## Land van Jan decisions
 
-- The exact visual source of truth is the user-approved image `Codex Image Aug 1, 2026, 10_39_00 PM.png`: editorial land-first hero, very large dark-green “Land van Jan” typography, three dark-green route cards over the hero, and the four-step route timeline.
+- The exact visual source of truth is the version-controlled user-approved image `docs/reference/approved-homepage-2026-08-01.png`: editorial land-first hero, very large dark-green “Land van Jan” typography, three dark-green route cards over the hero, and the four-step route timeline.
 - The original Lovable page is reference-only; never edit it. Build and upload this separate site instead.
 - Use real land photos throughout. The sole generated asset is allowed only as a clearly labelled `Toekomstvisualisatie`.
+- Never remove or replace the original files in `public/images/` without explicit owner approval. Responsive WebP files in `public/images/responsive/` are derived delivery assets; they do not replace the originals.
+- Render photos only from version-controlled public assets (or an explicitly approved permanent object store), with stable alt text, focal points, dimensions, `srcset`/`sizes`, eager loading only for the active hero, and lazy loading below the fold. Never use Photos Library paths, local temporary paths, or expiring URLs in rendered pages or MongoDB.
 - The site needs real, clickable multi-page navigation and an SEO-ready structure. Future login, member administration, and opt-in bulk email require a separate secure, AVG/GDPR-compliant backend phase.

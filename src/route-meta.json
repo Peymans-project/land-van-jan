@@ -1,0 +1,52 @@
+{
+  "/": {
+    "title": "Land van Jan Huissen | Kas, boomgaard & gemeenschap",
+    "description": "Land van Jan is een levend landproject in Huissen waar kas, boomgaard, makers en gemeenschap samen groeien.",
+    "index": true
+  },
+  "/over-het-land": {
+    "title": "Over het land | Land van Jan Huissen",
+    "description": "Ontdek de kas, boomgaard, werkplaats en gemeenschap van Land van Jan in Huissen.",
+    "index": true
+  },
+  "/agenda": {
+    "title": "Agenda | Activiteiten op Land van Jan",
+    "description": "Bekijk actuele activiteiten op Land van Jan in Huissen en meld je als lid aan.",
+    "index": true
+  },
+  "/verhalen": {
+    "title": "Verhalen | Land van Jan Huissen",
+    "description": "Verhalen over makers, natuur, muziek, voedsel en groei op Land van Jan.",
+    "index": true
+  },
+  "/contact": {
+    "title": "Contact | Land van Jan Huissen",
+    "description": "Neem veilig contact op met Land van Jan voor een bezoek, activiteit of bijdrage.",
+    "index": true
+  },
+  "/lid-worden": {
+    "title": "Word lid | Land van Jan Huissen",
+    "description": "Draag Land van Jan mee voor €5 per maand en ontvang toegang tot ledenactiviteiten en updates.",
+    "index": true
+  },
+  "/privacy": {
+    "title": "Privacy | Land van Jan Huissen",
+    "description": "Lees hoe Land van Jan zorgvuldig omgaat met account-, contact-, activiteiten- en betaalgegevens.",
+    "index": true
+  },
+  "/leden": {
+    "title": "Ledenomgeving | Land van Jan",
+    "description": "Beheer je Land van Jan-profiel, lidmaatschap en activiteiten.",
+    "index": false
+  },
+  "/beheer": {
+    "title": "Beheer | Land van Jan",
+    "description": "Afgeschermde beheeromgeving van Land van Jan.",
+    "index": false
+  },
+  "/404": {
+    "title": "Pagina niet gevonden | Land van Jan",
+    "description": "Deze pagina bestaat niet of is verplaatst.",
+    "index": false
+  }
+}
