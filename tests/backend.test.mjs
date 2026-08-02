@@ -22,6 +22,7 @@ const {
   isSameOriginWrite,
   provisionStripeResources,
   readActivityFields,
+  readDonationAmountCents,
   safeActivity,
   securityHeaders,
   stripeSubscriptionFields,
@@ -403,6 +404,15 @@ test("webhook signing secrets are authenticated-encrypted with a stable server s
   assert.throws(() => decryptStripeSecret(encrypted, encryptionSecret, "wrong-aad"));
 });
 
+test("donation amounts accept only whole euro cents within the public limits", () => {
+  assert.equal(readDonationAmountCents(100), 100);
+  assert.equal(readDonationAmountCents(2500), 2500);
+  assert.equal(readDonationAmountCents(500_000), 500_000);
+  for (const invalid of [99, 500_001, 12.5, "2500", NaN, Infinity, null]) {
+    assert.throws(() => readDonationAmountCents(invalid), error => error.statusCode === 400);
+  }
+});
+
 test("Stripe setup creates exactly €5 monthly resources and is reusable", async () => {
   const { client, state } = createFakeStripe();
   const encryptionSecret = "stable-session-secret-for-unit-tests";
@@ -413,13 +423,14 @@ test("Stripe setup creates exactly €5 monthly resources and is reusable", asyn
     encryptionSecret,
     generation: "first",
   });
-  assert.equal(state.products.length, 1);
+  assert.equal(state.products.length, 2);
   assert.equal(state.prices.length, 1);
   assert.equal(state.prices[0].currency, "eur");
   assert.equal(state.prices[0].unit_amount, 500);
   assert.equal(state.prices[0].recurring.interval, "month");
   assert.equal(state.webhookCreates, 1);
   assert.equal(first.config.webhookUrl, "https://land.example.test/api/stripe/webhook");
+  assert.ok(first.config.donationProductId);
 
   const second = await provisionStripeResources({
     client,
@@ -429,7 +440,7 @@ test("Stripe setup creates exactly €5 monthly resources and is reusable", asyn
     encryptionSecret,
     generation: "second",
   });
-  assert.equal(state.products.length, 1);
+  assert.equal(state.products.length, 2);
   assert.equal(state.prices.length, 1);
   assert.equal(state.webhookCreates, 1);
   assert.equal(second.config.webhookEndpointId, first.config.webhookEndpointId);
@@ -452,7 +463,7 @@ test("distinct public URLs do not obsolete each other's scoped Stripe endpoints"
     encryptionSecret,
     generation: "two",
   });
-  assert.equal(state.products.length, 1);
+  assert.equal(state.products.length, 2);
   assert.equal(state.prices.length, 1);
   assert.equal(state.portalConfigurations.length, 2);
   assert.equal(state.webhookCreates, 2);
@@ -562,6 +573,21 @@ test("Checkout completion validates resource, workflow and price before membersh
   assert.ok(workflowAt > resourceAt);
   assert.ok(priceAt > workflowAt);
   assert.ok(canonicalWriteAt > priceAt);
+});
+
+test("public donations use one-time Stripe Checkout with a server-owned product", () => {
+  const start = serverSource.indexOf('pathname === "/api/billing/donation-checkout"');
+  const end = serverSource.indexOf('pathname === "/api/billing/checkout"', start);
+  const donationSource = serverSource.slice(start, end);
+  assert.ok(start >= 0);
+  assert.ok(end > start);
+  assert.match(donationSource, /readDonationAmountCents\(body\.amountCents\)/);
+  assert.match(donationSource, /mode: "payment"/);
+  assert.match(donationSource, /submit_type: "donate"/);
+  assert.match(donationSource, /product: stripeConfig\.donationProductId/);
+  assert.match(donationSource, /customer_creation: "always"/);
+  assert.doesNotMatch(donationSource, /requireUser/);
+  assert.doesNotMatch(donationSource, /mode: "subscription"/);
 });
 
 test("subscription period end follows Clover item-level periods", () => {

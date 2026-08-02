@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Hammer, Leaf, Pause, Play, UsersRound } from 'lucide-react';
+import { HeartHandshake, Leaf, Pause, Play, UsersRound } from 'lucide-react';
 import { imageManifest, pageContent, responsiveSource, routeMeta } from './content.jsx';
 
 const HOME_TIMELINE = [
@@ -116,6 +116,7 @@ function Header({ path, member, authReady, navigate, openLogin }) {
     </button>
     <nav id="main-navigation" className={menuOpen ? 'is-open' : ''} aria-label="Hoofdnavigatie">
       {links.map(([to, label]) => <AppLink key={to} to={to} navigate={go} className={path === to ? 'active' : ''} aria-current={path === to ? 'page' : undefined}>{label}</AppLink>)}
+      <a href="/#doneer" onClick={() => setMenuOpen(false)}>Doneer</a>
       {authReady && member
         ? <AppLink to="/leden" navigate={go} className={path === '/leden' ? 'member-link active' : 'member-link'}>{member.name || 'Mijn account'}</AppLink>
         : <button className="member-link" type="button" disabled={!authReady} onClick={() => { setMenuOpen(false); openLogin(); }}>{authReady ? 'Inloggen' : 'Laden…'}</button>}
@@ -159,6 +160,18 @@ function App() {
     const search = params.toString();
     window.history.replaceState(window.history.state, '', `${window.location.pathname}${search ? `?${search}` : ''}${window.location.hash}`);
     setNotice('De betaling is geannuleerd. Er is niets afgeschreven en je kunt later opnieuw beginnen.');
+  }, [path]);
+  useEffect(() => {
+    if (path !== '/') return;
+    const params = new URLSearchParams(window.location.search);
+    const donation = params.get('donatie');
+    if (donation !== 'bedankt' && donation !== 'geannuleerd') return;
+    params.delete('donatie');
+    const search = params.toString();
+    window.history.replaceState(window.history.state, '', `${window.location.pathname}${search ? `?${search}` : ''}#doneer`);
+    setNotice(donation === 'bedankt'
+      ? 'Dank je wel voor je bijdrage aan Land van Jan.'
+      : 'De donatie is geannuleerd. Er is niets afgeschreven.');
   }, [path]);
   useEffect(() => {
     let active = true;
@@ -212,7 +225,7 @@ function Home({ navigate, member, openLogin }) {
       <div className="paths" aria-label="Kies een route">
         <RouteCard icon="visit" title={<>Bezoek<br />het land</>} text="Kom langs, kijk rond, voel de plek." to="/contact" navigate={navigate} />
         <RouteCard icon="member" title={<>Word<br />lid</>} text="Sluit je aan bij de community en ontvang voordelen." to="/lid-worden" navigate={navigate} />
-        <RouteCard icon="build" title={<>Bouw<br />mee</>} text="Draag bij met tijd, kennis of middelen." to="/contact" navigate={navigate} />
+        <RouteCard icon="donate" title={<>Doneer<br />vrijblijvend</>} text="Kies zelf een bedrag en betaal veilig via Stripe." href="/#doneer" />
       </div>
     </section>
     <section className="route section" aria-labelledby="route-title">
@@ -226,6 +239,7 @@ function Home({ navigate, member, openLogin }) {
     </section>
     <LandFilms />
     <ActivityFeed compact member={member} openLogin={openLogin} navigate={navigate} />
+    <DonationSection />
     <section className="membership" aria-labelledby="member-title">
       <div><p className="eyebrow light">LEDENROUTE</p><h2 id="member-title">Draag een plek<br />mee die groeit.</h2><p>Voor leden: toegang tot updates, activiteiten en de community. Een lidmaatschap begint klein en blijft dichtbij het land.</p><AppLink to="/lid-worden" navigate={navigate} className="button button-rust">Ontdek lidmaatschap <span aria-hidden="true">→</span></AppLink></div>
       <LandImage imageKey="gemeenschap" sizes="(max-width: 800px) 100vw, 45vw" />
@@ -234,17 +248,65 @@ function Home({ navigate, member, openLogin }) {
 }
 
 function RouteIcon({ type }) {
-  const Icon = type === 'visit' ? Leaf : type === 'member' ? UsersRound : Hammer;
+  const Icon = type === 'visit' ? Leaf : type === 'member' ? UsersRound : HeartHandshake;
   return <Icon className="route-icon" aria-hidden="true" focusable="false" strokeWidth={1.6} />;
 }
 
-function RouteCard({ icon, title, text, to, navigate }) {
-  return <AppLink to={to} navigate={navigate} className="route-card">
+function RouteCard({ icon, title, text, to, href, navigate }) {
+  const content = <>
     <RouteIcon type={icon} />
     <strong>{title}</strong>
     <span>{text}</span>
     <b aria-hidden="true">→</b>
-  </AppLink>;
+  </>;
+  return href
+    ? <a href={href} className="route-card">{content}</a>
+    : <AppLink to={to} navigate={navigate} className="route-card">{content}</AppLink>;
+}
+
+function donationAmountToCents(value) {
+  const normalized = String(value || '').trim().replace(',', '.');
+  if (!/^\d{1,4}(?:\.\d{1,2})?$/.test(normalized)) return null;
+  const [whole, fraction = ''] = normalized.split('.');
+  const cents = Number(whole) * 100 + Number(`${fraction}00`.slice(0, 2));
+  return Number.isSafeInteger(cents) && cents >= 100 && cents <= 500_000 ? cents : null;
+}
+
+function DonationSection() {
+  const [amount, setAmount] = useState('25');
+  const [state, setState] = useState('idle');
+  const [message, setMessage] = useState('');
+  const submit = async (event) => {
+    event.preventDefault();
+    const amountCents = donationAmountToCents(amount);
+    if (!amountCents) {
+      setMessage('Vul een bedrag in tussen €1 en €5.000, met maximaal twee decimalen.');
+      return;
+    }
+    setState('loading');
+    setMessage('Stripe Checkout wordt veilig geopend…');
+    try {
+      const data = await api('/api/billing/donation-checkout', { method: 'POST', body: JSON.stringify({ amountCents }) });
+      window.location.assign(data.checkoutUrl);
+    } catch (error) {
+      setState('idle');
+      setMessage(error.message);
+    }
+  };
+  return <section className="donation section" id="doneer" aria-labelledby="donation-title">
+    <div className="donation-copy">
+      <p className="eyebrow">VRIJBLIJVEND STEUNEN</p>
+      <h2 id="donation-title">Geef het land<br /><em>ruimte om te groeien.</em></h2>
+      <p>Met een eenmalige bijdrage help je mee aan de kas, boomgaard, materialen en activiteiten. Je kiest zelf het bedrag; er ontstaat geen abonnement.</p>
+    </div>
+    <form className="donation-form" onSubmit={submit}>
+      <label htmlFor="donation-amount">Jouw bedrag</label>
+      <div className="donation-amount"><span aria-hidden="true">€</span><input id="donation-amount" name="amount" type="text" inputMode="decimal" autoComplete="off" value={amount} onChange={(event) => setAmount(event.target.value)} aria-describedby="donation-help" required /></div>
+      <small id="donation-help">Eenmalig · minimaal €1 · veilig verwerkt door Stripe</small>
+      <button className="button button-rust" type="submit" disabled={state === 'loading'}>{state === 'loading' ? 'Even wachten…' : 'Doneer via Stripe'} <span aria-hidden="true">→</span></button>
+      {message && <p className="donation-status" role="status">{message}</p>}
+    </form>
+  </section>;
 }
 
 function Timeline({ title, date, image, text }) {
@@ -741,7 +803,7 @@ function PrivacyPage({ navigate }) {
   return <article className="legal-page"><header><p className="eyebrow">PRIVACY</p><h1>Zorgvuldig met<br /><em>jouw gegevens.</em></h1><p>Deze verklaring beschrijft welke gegevens Land van Jan gebruikt, waarom dat nodig is en welke keuzes je hebt. Laatst bijgewerkt: 2 augustus 2026.</p></header>
     <div className="legal-grid"><nav aria-label="Privacyonderwerpen"><a href="#verantwoordelijke">Verantwoordelijke</a><a href="#gegevens">Welke gegevens</a><a href="#doelen">Doelen en grondslagen</a><a href="#bewaren">Bewaren</a><a href="#partijen">Dienstverleners</a><a href="#rechten">Jouw rechten</a></nav><div>
       <section id="verantwoordelijke"><h2>Verantwoordelijke</h2><p>Land van Jan in Huissen is de verwerkingsverantwoordelijke voor de persoonsgegevens die via deze website worden verwerkt. Voor privacyvragen of een verzoek kun je het beveiligde contactformulier gebruiken.</p></section>
-      <section id="gegevens"><h2>Welke gegevens</h2><p>Voor een ledenaccount verwerken we naam, e-mailadres, een veilig gehashte wachtwoordrepresentatie, sessies, voorkeuren, lidmaatschapsstatus en aanmeldingen. Bij een contactbericht verwerken we naam, e-mailadres, onderwerp en bericht. Stripe verwerkt betaalgegevens; Land van Jan ontvangt alleen noodzakelijke klant-, abonnements- en statusreferenties.</p></section>
+      <section id="gegevens"><h2>Welke gegevens</h2><p>Voor een ledenaccount verwerken we naam, e-mailadres, een veilig gehashte wachtwoordrepresentatie, sessies, voorkeuren, lidmaatschapsstatus en aanmeldingen. Bij een contactbericht verwerken we naam, e-mailadres, onderwerp en bericht. Stripe verwerkt betaalgegevens voor lidmaatschappen en eenmalige donaties; Land van Jan ontvangt alleen noodzakelijke klant-, betaal-, abonnements- en statusreferenties.</p></section>
       <section id="doelen"><h2>Doelen en grondslagen</h2><p>Account-, leden- en aanmeldgegevens zijn nodig om de ledenovereenkomst en activiteiten uit te voeren. Beveiligingslogs en fraudepreventie steunen op een gerechtvaardigd belang. Marketingupdates worden alleen verstuurd na afzonderlijke, intrekbare toestemming. Contactgegevens gebruiken we uitsluitend om te reageren op je verzoek.</p></section>
       <section id="bewaren"><h2>Bewaartermijnen</h2><p>Sessies verlopen uiterlijk na veertien dagen. Contactberichten worden maximaal 180 dagen bewaard. Activiteitsaanmeldingen worden uiterlijk één jaar na afloop van de activiteit verwijderd. Stripe-webhookregistraties worden na negentig dagen verwijderd en beveiligings- en auditregistraties na maximaal 400 dagen. Je account blijft bestaan totdat je het zelf verwijdert of verwijdering verzoekt.</p></section>
       <section id="partijen"><h2>Dienstverleners</h2><p>De site draait bij Railway, de database bij MongoDB en betalingen lopen via Stripe. Deze partijen verwerken alleen gegevens die nodig zijn voor hun dienst. Er worden geen tijdelijke foto- of privébibliotheeklinks gebruikt: de zichtbare landfoto’s zijn beheerde site-assets.</p></section>

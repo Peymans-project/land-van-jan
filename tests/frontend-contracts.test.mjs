@@ -39,3 +39,14 @@ test('Stripe return handling is explicit, bounded and suppresses a duplicate che
   assert.match(appSource, /Start geen tweede betaling/);
   assert.match(appSource, /paymentNeedsReconciliation \? refreshPaymentStatus : manageMembership/);
 });
+
+test('free donation amounts support Dutch decimals and stay within the Stripe limits', () => {
+  const donationAmountToCents = loadPureFunction('donationAmountToCents', 'DonationSection');
+  assert.equal(donationAmountToCents('1'), 100);
+  assert.equal(donationAmountToCents('1,50'), 150);
+  assert.equal(donationAmountToCents('25.00'), 2500);
+  assert.equal(donationAmountToCents('5000'), 500_000);
+  for (const invalid of ['0,99', '5000.01', '12.345', '-5', 'abc', '']) assert.equal(donationAmountToCents(invalid), null);
+  assert.match(appSource, /\/api\/billing\/donation-checkout/);
+  assert.match(appSource, /Eenmalig · minimaal €1 · veilig verwerkt door Stripe/);
+});

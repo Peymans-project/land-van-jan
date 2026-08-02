@@ -121,6 +121,20 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .empty-state h3 { margin: 0 0 10px; font-family: var(--serif); font-size: 30px; font-weight: 400; }
 .empty-state p { color: var(--muted); line-height: 1.6; }
 
+.donation { display: grid; grid-template-columns: 1.05fr .95fr; align-items: center; gap: 8vw; background: var(--paper-soft); scroll-margin-top: 30px; }
+.donation-copy h2 { margin-bottom: 24px; font-family: var(--sans); font-weight: 500; letter-spacing: -.065em; }
+.donation-copy h2 em { font-family: var(--serif); font-style: italic; }
+.donation-copy > p:not(.eyebrow) { max-width: 580px; color: var(--muted); line-height: 1.65; }
+.donation-form { display: grid; gap: 17px; background: var(--ink-deep); color: var(--white); padding: 38px; }
+.donation-form > label { font-size: 11px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; }
+.donation-amount { display: grid; grid-template-columns: auto 1fr; align-items: center; border-bottom: 1px solid rgba(255,255,255,.62); }
+.donation-amount > span { padding: 0 10px 4px 0; font-family: var(--serif); font-size: 44px; }
+.donation-amount input { border: 0; background: transparent; color: var(--white); padding: 7px 0 10px; font-family: var(--serif); font-size: 52px; line-height: 1; }
+.donation-amount input:focus-visible { outline-color: #fff; }
+.donation-form > small { color: #cbd8cc; line-height: 1.45; }
+.donation-form .button { width: 100%; margin-top: 8px; }
+.donation-status { margin: 0; border-left: 3px solid var(--rust); padding: 4px 0 4px 13px; color: #dce5dc; font-size: 13px; line-height: 1.45; }
+
 .membership { display: grid; grid-template-columns: 1.1fr .9fr; min-height: 555px; background: var(--ink); color: var(--white); }
 .membership > div { padding: 95px max(6vw, calc((100vw - 1280px) / 2)); }
 .membership h2 { color: var(--white); }
@@ -327,6 +341,10 @@ th { color: var(--muted); font-size: 10px; letter-spacing: .13em; text-transform
   .activity .time, .activity > div:not(.date), .activity > .text-button { grid-column: 2; justify-self: start; }
   .activity h3 { font-size: 25px; }
   .activity > .text-button { margin-top: 7px; }
+  .donation { grid-template-columns: 1fr; gap: 36px; }
+  .donation-form { padding: 28px 22px; }
+  .donation-amount > span { font-size: 38px; }
+  .donation-amount input { font-size: 46px; }
   .membership { grid-template-columns: 1fr; }
   .membership > div { padding: 76px 20px 55px; }
   .membership h2 { font-size: 47px; }

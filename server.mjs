@@ -30,8 +30,11 @@ const DEFAULT_ACTIVITY_LOCATION = "Land van Jan, Huissen";
 const STRIPE_API_VERSION = "2026-02-25.clover";
 const STRIPE_CONFIG_ID = "stripe_membership_v1";
 const STRIPE_RESOURCE_MARKER = "land_van_jan_membership_v1";
+const STRIPE_DONATION_RESOURCE_MARKER = "land_van_jan_donation_v1";
 const STRIPE_PRICE_LOOKUP_KEY = "land_van_jan_membership_eur_monthly_v1";
 const STRIPE_PRICE_CENTS = 500;
+const DONATION_MIN_CENTS = 100;
+const DONATION_MAX_CENTS = 500_000;
 const STRIPE_WEBHOOK_EVENTS = [
   "checkout.session.completed",
   "customer.subscription.created",
@@ -76,6 +79,16 @@ function billingConfigError() {
   if (!/^(?:sk|rk)_(?:test|live)_/.test(stripeSecretKey)) return "STRIPE_SECRET_KEY heeft geen ondersteund formaat.";
   return null;
 }
+
+export function readDonationAmountCents(value) {
+  if (!Number.isSafeInteger(value) || value < DONATION_MIN_CENTS || value > DONATION_MAX_CENTS) {
+    const error = new Error("Kies een donatiebedrag tussen €1 en €5.000.");
+    error.statusCode = 400;
+    throw error;
+  }
+  return value;
+}
+
 function stripe() {
   const error = billingConfigError();
   if (error) { const configurationError = new Error("Betalingen zijn nog niet geconfigureerd."); configurationError.statusCode = 503; throw configurationError; }
@@ -597,6 +610,10 @@ function resourceMetadataMatches(resource) {
   return resource?.metadata?.lvj_resource === STRIPE_RESOURCE_MARKER;
 }
 
+function donationResourceMetadataMatches(resource) {
+  return resource?.metadata?.lvj_resource === STRIPE_DONATION_RESOURCE_MARKER;
+}
+
 function baseUrlScope(baseUrl) {
   return createHash("sha256").update(baseUrl).digest("hex").slice(0, 24);
 }
@@ -675,6 +692,22 @@ export async function provisionStripeResources({
       description: "Lidmaatschap van Land van Jan in Huissen.",
       metadata: { lvj_resource: STRIPE_RESOURCE_MARKER },
     }, { idempotencyKey: "lvj-membership-product-v1" });
+  }
+
+  let donationProduct = sameAccount && currentConfig.donationProductId
+    ? await retrieveOrNull(() => client.products.retrieve(currentConfig.donationProductId))
+    : null;
+  if (!donationResourceMetadataMatches(donationProduct)) donationProduct = null;
+  if (!donationProduct) {
+    const products = await client.products.list({ active: true, limit: 100 });
+    donationProduct = products.data.find(donationResourceMetadataMatches) || null;
+  }
+  if (!donationProduct) {
+    donationProduct = await client.products.create({
+      name: "Donatie aan Land van Jan",
+      description: "Eenmalige vrijblijvende bijdrage aan Land van Jan in Huissen.",
+      metadata: { lvj_resource: STRIPE_DONATION_RESOURCE_MARKER },
+    }, { idempotencyKey: "lvj-donation-product-v1" });
   }
 
   let price = sameAccount && currentConfig.priceId
@@ -810,6 +843,7 @@ export async function provisionStripeResources({
       stripeAccountId: account.id,
       livemode,
       productId: product.id,
+      donationProductId: donationProduct.id,
       priceId: price.id,
       portalConfigurationId: portalConfiguration.id,
       webhookEndpointId: endpoint.id,
@@ -1586,6 +1620,42 @@ async function handleApi(request, response, pathname) {
       if (adminLease) await database.collection("service_locks").deleteOne({ _id: "admin_account_delete", owner: adminLease.owner, fence: adminLease.fence }).catch(() => {});
       await database.collection("service_locks").deleteOne({ _id: memberLockId, owner: memberLease.owner, fence: memberLease.fence }).catch(() => {});
     }
+  }
+  if (pathname === "/api/billing/donation-checkout" && method === "POST") {
+    if (!allowRate(request, "donation-checkout", 8, 60 * 60 * 1000)) return sendApiError(response, 429, "Probeer later opnieuw.");
+    const body = await readJson(request);
+    const amountCents = readDonationAmountCents(body.amountCents);
+    const client = stripe();
+    const database = await db();
+    const stripeConfig = await ensureStripeConfiguration(database, request);
+    const donationId = randomUUID();
+    const checkoutSession = await client.checkout.sessions.create({
+      mode: "payment",
+      submit_type: "donate",
+      locale: "nl",
+      customer_creation: "always",
+      line_items: [{
+        price_data: {
+          currency: "eur",
+          unit_amount: amountCents,
+          product: stripeConfig.donationProductId,
+        },
+        quantity: 1,
+      }],
+      success_url: `${canonicalBaseUrl(request)}/?donatie=bedankt`,
+      cancel_url: `${canonicalBaseUrl(request)}/?donatie=geannuleerd`,
+      metadata: {
+        lvj_resource: STRIPE_DONATION_RESOURCE_MARKER,
+        donationId,
+        amountCents: String(amountCents),
+      },
+      payment_intent_data: {
+        description: "Vrijblijvende donatie aan Land van Jan",
+        metadata: { lvj_resource: STRIPE_DONATION_RESOURCE_MARKER, donationId },
+      },
+    }, { idempotencyKey: `donation-checkout-${donationId}` });
+    if (!checkoutSession.url) return sendApiError(response, 503, "Stripe Checkout kon niet worden geopend.");
+    return sendJson(response, 200, { checkoutUrl: checkoutSession.url });
   }
   if (pathname === "/api/billing/checkout" && method === "POST") {
     const user = await requireUser(request);
