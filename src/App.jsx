@@ -345,9 +345,8 @@ function LandVideo({ src, poster, label, className = '' }) {
 
 function LandFilms() {
   return <section className="land-films section" aria-labelledby="films-title">
-    <div className="motion-heading"><div><p className="eyebrow light">VAN HET LAND</p><h2 id="films-title">De plek<br /><em>in beweging.</em></h2></div><p>Twee korte blikken over het erf. Stil afgespeeld, zonder afleiding—precies zoals het land op dat moment was.</p></div>
+    <div className="motion-heading"><div><p className="eyebrow light">VAN HET LAND</p><h2 id="films-title">De plek<br /><em>in beweging.</em></h2></div><p>Een korte blik over het erf. Stil afgespeeld, zonder afleiding—precies zoals het land op dat moment was.</p></div>
     <div className="motion-grid">
-      <LandVideo className="portrait" src="/videos/optimized/land-video-01.mp4" poster="/videos/optimized/land-video-01-poster.jpg" label="Verticale blik langs de kas en buitenplek" />
       <LandVideo className="landscape" src="/videos/optimized/land-video-02.mp4" poster="/videos/optimized/land-video-02-poster.jpg" label="Brede blik door de boomgaard van Land van Jan" />
     </div>
   </section>;
