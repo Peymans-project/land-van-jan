@@ -35,6 +35,12 @@ const STRIPE_PRICE_LOOKUP_KEY = "land_van_jan_membership_eur_monthly_v1";
 const STRIPE_PRICE_CENTS = 500;
 const DONATION_MIN_CENTS = 100;
 const DONATION_MAX_CENTS = 500_000;
+const STRIPE_CHECKOUT_BRANDING = {
+  display_name: "Land van Jan",
+  background_color: "#f5f0e8",
+  button_color: "#a84824",
+  border_style: "rectangular",
+};
 const STRIPE_WEBHOOK_EVENTS = [
   "checkout.session.completed",
   "customer.subscription.created",
@@ -1634,6 +1640,7 @@ async function handleApi(request, response, pathname) {
       submit_type: "donate",
       locale: "nl",
       customer_creation: "always",
+      branding_settings: STRIPE_CHECKOUT_BRANDING,
       line_items: [{
         price_data: {
           currency: "eur",
@@ -1714,6 +1721,7 @@ async function handleApi(request, response, pathname) {
       const workflowId = freshUser.pendingCheckoutWorkflowId;
       const checkoutSession = await client.checkout.sessions.create({
         mode: "subscription",
+        branding_settings: STRIPE_CHECKOUT_BRANDING,
         line_items: [{ price: stripeConfig.priceId, quantity: 1 }],
         success_url: `${canonicalBaseUrl(request)}/leden?betaling=geslaagd`,
         cancel_url: `${canonicalBaseUrl(request)}/lid-worden?betaling=geannuleerd`,

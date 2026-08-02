@@ -586,8 +586,16 @@ test("public donations use one-time Stripe Checkout with a server-owned product"
   assert.match(donationSource, /submit_type: "donate"/);
   assert.match(donationSource, /product: stripeConfig\.donationProductId/);
   assert.match(donationSource, /customer_creation: "always"/);
+  assert.match(donationSource, /branding_settings: STRIPE_CHECKOUT_BRANDING/);
   assert.doesNotMatch(donationSource, /requireUser/);
   assert.doesNotMatch(donationSource, /mode: "subscription"/);
+});
+
+test("all Checkout flows override unrelated account branding with Land van Jan", () => {
+  assert.match(serverSource, /display_name: "Land van Jan"/);
+  assert.match(serverSource, /background_color: "#f5f0e8"/);
+  assert.match(serverSource, /button_color: "#a84824"/);
+  assert.equal((serverSource.match(/branding_settings: STRIPE_CHECKOUT_BRANDING/g) || []).length, 2);
 });
 
 test("subscription period end follows Clover item-level periods", () => {
