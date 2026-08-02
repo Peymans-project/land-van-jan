@@ -95,7 +95,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .motion-grid { display: block; }
 .land-film { position: relative; margin: 0; overflow: hidden; background: #091f15; }
 .land-film.portrait { aspect-ratio: 478 / 760; }
-.land-film.landscape { width: 100%; max-width: 1120px; margin-left: auto; aspect-ratio: 16 / 9; }
+.land-film.landscape { width: 100%; max-width: 1120px; margin-inline: auto; aspect-ratio: 16 / 9; }
 .land-film video { display: block; width: 100%; height: 100%; object-fit: cover; }
 .land-film.portrait video { object-position: 50% 48%; }
 .land-film.landscape video { object-position: 50% 50%; }
