@@ -1,0 +1,66 @@
+{
+  "collection": "Land van Jan video-archief",
+  "archivedAt": "2026-08-02",
+  "sourceNote": "Door de eigenaar aangeleverde videobestanden. Tijdelijke deel- en download-URL's worden niet in de site of dit manifest bewaard.",
+  "playbackPolicy": {
+    "autoplay": true,
+    "muted": true,
+    "loop": true,
+    "playsInline": true,
+    "nativeControls": false,
+    "customControl": "pause-resume",
+    "reducedMotion": "starts-paused"
+  },
+  "assets": [
+    {
+      "key": "land-video-01",
+      "description": "Verticale blik langs de kas en de buitenplek.",
+      "original": {
+        "path": "/videos/originals/2026-08-02/land-video-01-original.mp4",
+        "sha256": "df1699a944971f625ac115cd51c0a64574a0e6b4517a9f3c1bb72951b32ca3ed",
+        "bytes": 2102602,
+        "width": 478,
+        "height": 850,
+        "durationSeconds": 8.206667,
+        "videoCodec": "h264",
+        "audioCodec": "aac"
+      },
+      "web": {
+        "path": "/videos/optimized/land-video-01.mp4",
+        "sha256": "b5b400707b2eae868c44b7344878954f9ffef96f0ffa4644419baa1df35f59c5",
+        "bytes": 1251571,
+        "width": 478,
+        "height": 850,
+        "durationSeconds": 8.2082,
+        "videoCodec": "h264",
+        "audio": false,
+        "poster": "/videos/optimized/land-video-01-poster.jpg"
+      }
+    },
+    {
+      "key": "land-video-02",
+      "description": "Brede blik door de boomgaard van Land van Jan.",
+      "original": {
+        "path": "/videos/originals/2026-08-02/land-video-02-original.mp4",
+        "sha256": "5918fe77d78e3bca13a33c89692b039c04bf57c26890927cbef26cbd1cf82957",
+        "bytes": 2745013,
+        "width": 848,
+        "height": 478,
+        "durationSeconds": 10.373333,
+        "videoCodec": "h264",
+        "audioCodec": "aac"
+      },
+      "web": {
+        "path": "/videos/optimized/land-video-02.mp4",
+        "sha256": "3cb2d074eb71b4d75b7b01f20f04381717b23a7d5d5e2a8b94f22bfd0df3b6a8",
+        "bytes": 1575137,
+        "width": 848,
+        "height": 478,
+        "durationSeconds": 10.377033,
+        "videoCodec": "h264",
+        "audio": false,
+        "poster": "/videos/optimized/land-video-02-poster.jpg"
+      }
+    }
+  ]
+}

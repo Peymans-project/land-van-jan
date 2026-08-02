@@ -2,7 +2,7 @@
 
 ## Selected source target
 
-`/Users/peymannabizadeh/Desktop/lets start the bussniss/Codex Image Aug 1, 2026, 10_39_00 PM.png`
+`docs/reference/approved-homepage-2026-08-01.png`
 
 ## Iteration
 
@@ -10,6 +10,7 @@
 - Rebuilt the desktop hero around the approved structure: real land image, oversized dark-green title, Huissen tag, three route cards, and the four-step route section.
 - Added functional routes for Over het land, Agenda, Verhalen, Contact, and Word lid.
 - Only one generated image is present and it is visibly labelled `TOEKOMSTVISUALISATIE`; all other imagery is supplied real land photography.
+- The original photos remain unchanged in `public/images/`; responsive WebP delivery variants live alongside them in `public/images/responsive/`.
 
 ## Final checks
 

@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /leden
+Disallow: /beheer
+Disallow: /404
+
+Sitemap: https://land-van-jan-production.up.railway.app/sitemap.xml
+Host: land-van-jan-production.up.railway.app
