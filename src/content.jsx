@@ -68,7 +68,7 @@ export const imageManifest = {
     focalPoint: '50% 50%',
   },
   'ankh-kunst': {
-    src: '/images/originals/2026-08-02/photo-035.jpeg',
+    src: '/images/ankh-kunst-clean.jpeg',
     width: 768,
     height: 1024,
     widths: [384, 768],
