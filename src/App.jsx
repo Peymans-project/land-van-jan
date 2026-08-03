@@ -129,7 +129,6 @@ function App() {
   const [loginOpen, setLoginOpen] = useState(false);
   const [loginMode, setLoginMode] = useState('login');
   const [notice, setNotice] = useState('');
-  const [uploading, setUploading] = useState('');
   const [member, setMember] = useState(null);
   const [authReady, setAuthReady] = useState(false);
 
@@ -673,6 +672,7 @@ function AdminDashboard({ member }) {
   const [attendees, setAttendees] = useState(null);
   const [state, setState] = useState('loading');
   const [notice, setNotice] = useState('');
+  const [uploading, setUploading] = useState('');
   const load = async () => {
     setState('loading');
     const results = await Promise.allSettled([
