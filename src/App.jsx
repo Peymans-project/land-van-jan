@@ -219,7 +219,7 @@ function Home({ navigate, member, openLogin }) {
       <LandImage imageKey="land-hero" eager sizes="100vw" />
       <div className="hero-wash" />
       <div className="hero-copy">
-        <h1 id="hero-title"><span>Land</span><span>van Jan</span><em>(Huissen)</em></h1>
+        <h1 id="hero-title"><span>Land</span><span>van Jan</span><em>Huissen</em></h1>
         <p>Een levend project in Huissen.<br />Waar kas, boomgaard en gemeenschap samen groeien.</p>
       </div>
       <div className="paths" aria-label="Kies een route">
@@ -794,6 +794,7 @@ function LoginModal({ initialMode, close, onAuthenticated, navigate }) {
     <button className="close" aria-label="Sluiten" type="button" onClick={close}>×</button><p className="eyebrow">LEDENOMGEVING</p>
     <div className="login-tabs" role="tablist" aria-label="Accounttoegang"><button type="button" role="tab" aria-selected={mode === 'login'} className={mode === 'login' ? 'selected' : ''} onClick={() => { setMode('login'); setStatus(''); }}>Inloggen</button><button type="button" role="tab" aria-selected={mode === 'register'} className={mode === 'register' ? 'selected' : ''} onClick={() => { setMode('register'); setStatus(''); }}>Account maken</button></div>
     <h2 id="login-title">{mode === 'login' ? 'Welkom terug.' : 'Sluit je aan.'}</h2><p>{mode === 'login' ? 'Log in om je profiel, lidmaatschap en activiteiten te beheren.' : 'Maak een beveiligd account. Betalen gebeurt daarna rechtstreeks bij Stripe.'}</p>
+    {mode === 'login' && <><a className="google-login" href="/api/auth/google/start"><span aria-hidden="true">G</span>Doorgaan met Google</a><div className="login-divider"><span>of met e-mail</span></div></>}
     <form onSubmit={submit}>{mode === 'register' && <label>Naam<input name="name" autoComplete="name" maxLength="80" required /></label>}<label>E-mailadres<input name="email" type="email" autoComplete="email" maxLength="254" required /></label><label>Wachtwoord<input name="password" type="password" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} minLength="12" maxLength="128" required /><small>Minimaal 12 tekens.</small></label>{mode === 'register' && <><label className="check-label"><input name="privacyAccepted" type="checkbox" required /><span>Ik heb de <AppLink to="/privacy" navigate={navigate} onClick={close}>privacyverklaring</AppLink> gelezen.</span></label><label className="check-label"><input name="marketingConsent" type="checkbox" /><span>Ik wil incidentele updates en uitnodigingen per e-mail ontvangen (optioneel).</span></label></>}{status && <p className="form-status" role="alert">{status}</p>}<button className="button" type="submit" disabled={busy}>{busy ? 'Even wachten…' : mode === 'login' ? 'Inloggen' : 'Account maken'} <span aria-hidden="true">→</span></button></form>
   </section></div>;
 }

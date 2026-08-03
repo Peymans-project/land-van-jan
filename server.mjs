@@ -52,6 +52,8 @@ const databaseName = process.env.MONGODB_DB || "land_van_jan";
 const sessionSecret = process.env.SESSION_SECRET || "";
 const adminEmails = new Set((process.env.ADMIN_EMAILS || "").split(",").map(value => value.trim().toLowerCase()).filter(Boolean));
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY || "";
+const googleClientId = process.env.GOOGLE_CLIENT_ID || "";
+const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET || "";
 const configuredAppBaseUrl = normalizeBaseUrl(process.env.APP_BASE_URL || "");
 const railwayPublicDomain = String(process.env.RAILWAY_PUBLIC_DOMAIN || "").trim();
 const PUBLIC_ROUTES = new Set(["/", "/over-het-land", "/agenda", "/verhalen", "/contact", "/lid-worden", "/privacy", "/leden", "/beheer", "/404"]);
@@ -151,6 +153,10 @@ async function connectDatabase() {
   database = mongoClient.db(databaseName);
   await Promise.all([
     database.collection("users").createIndex({ email: 1 }, { unique: true }),
+    database.collection("users").createIndex(
+      { googleSubject: 1 },
+      { unique: true, name: "google_subject_unique", partialFilterExpression: { googleSubject: { $type: "string" } } },
+    ),
     database.collection("sessions").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
     database.collection("sessions").createIndex({ userId: 1 }),
     database.collection("activities").createIndex({ status: 1, startsAt: 1 }),
@@ -270,6 +276,26 @@ function sessionCookie(token, seconds = SESSION_TTL_SECONDS) {
   return `lvj_session=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${seconds}; Priority=High${isProduction ? "; Secure" : ""}`;
 }
 function clearSessionCookie() { return sessionCookie("", 0); }
+function googleOauthCookie(value, seconds = 600) {
+  return `lvj_google_oauth=${encodeURIComponent(value)}; Path=/api/auth/google; HttpOnly; SameSite=Lax; Max-Age=${seconds}; Priority=High${isProduction ? "; Secure" : ""}`;
+}
+function clearGoogleOauthCookie() { return googleOauthCookie("", 0); }
+function signedOauthState(payload) {
+  const encoded = base64url(JSON.stringify(payload));
+  return `${encoded}.${sign(`google-oauth:${encoded}`)}`;
+}
+function verifyOauthState(value) {
+  if (!value || !value.includes(".")) return null;
+  const [encoded, signature] = value.split(".");
+  const expected = sign(`google-oauth:${encoded}`);
+  const actualBuffer = Buffer.from(signature || "");
+  const expectedBuffer = Buffer.from(expected);
+  if (actualBuffer.length !== expectedBuffer.length || !timingSafeEqual(actualBuffer, expectedBuffer)) return null;
+  try {
+    const payload = JSON.parse(unbase64url(encoded));
+    return payload.exp > Math.floor(Date.now() / 1000) && payload.state && payload.nonce ? payload : null;
+  } catch { return null; }
+}
 export function securityHeaders() {
   return {
     "Content-Security-Policy": "default-src 'self'; base-uri 'self'; connect-src 'self'; font-src 'self' data:; form-action 'self' https://checkout.stripe.com https://billing.stripe.com; frame-ancestors 'none'; img-src 'self' data:; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'",
@@ -286,6 +312,10 @@ function sendJson(response, status, body, headers = {}) {
   response.end(JSON.stringify(body));
 }
 function sendApiError(response, status, message) { sendJson(response, status, { error: message }); }
+function redirect(response, location, headers = {}) {
+  response.writeHead(302, { ...securityHeaders(), "Cache-Control": "no-store", Location: location, ...headers });
+  response.end();
+}
 export function safeUser(user) {
   return {
     id: user._id.toString(),
@@ -1313,6 +1343,80 @@ async function handleApi(request, response, pathname) {
       return sendJson(response, 200, { ok: true, database: "ready", billing });
     } catch {
       return sendApiError(response, 503, "De backend is nog niet gereed.");
+    }
+  }
+  if (pathname === "/api/auth/google/start" && method === "GET") {
+    if (!googleClientId || !googleClientSecret) return sendApiError(response, 503, "Google-inloggen is nog niet geconfigureerd.");
+    if (!allowRate(request, "google-login-start", 20)) return sendApiError(response, 429, "Probeer later opnieuw.");
+    const baseUrl = canonicalBaseUrl(request);
+    if (!baseUrl) return sendApiError(response, 503, "De publieke site-URL is nog niet geconfigureerd.");
+    const payload = {
+      state: randomBytes(24).toString("base64url"),
+      nonce: randomBytes(24).toString("base64url"),
+      exp: Math.floor(Date.now() / 1000) + 600,
+    };
+    const authorizationUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
+    authorizationUrl.search = new URLSearchParams({
+      client_id: googleClientId,
+      redirect_uri: `${baseUrl}/api/auth/google/callback`,
+      response_type: "code",
+      scope: "openid email profile",
+      state: payload.state,
+      nonce: payload.nonce,
+      prompt: "select_account",
+    }).toString();
+    return redirect(response, authorizationUrl.toString(), { "Set-Cookie": googleOauthCookie(signedOauthState(payload)) });
+  }
+  if (pathname === "/api/auth/google/callback" && method === "GET") {
+    const baseUrl = canonicalBaseUrl(request);
+    const callbackUrl = new URL(request.url || pathname, baseUrl || "http://localhost");
+    const statePayload = verifyOauthState(cookies(request).lvj_google_oauth);
+    const code = callbackUrl.searchParams.get("code");
+    const state = callbackUrl.searchParams.get("state");
+    if (!baseUrl || !googleClientId || !googleClientSecret || !code || !statePayload || state !== statePayload.state) {
+      return redirect(response, `${baseUrl || "/"}/leden?google=ongeldig`, { "Set-Cookie": clearGoogleOauthCookie() });
+    }
+    if (!allowRate(request, "google-login-callback", 20)) return sendApiError(response, 429, "Probeer later opnieuw.");
+    try {
+      const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          code,
+          client_id: googleClientId,
+          client_secret: googleClientSecret,
+          redirect_uri: `${baseUrl}/api/auth/google/callback`,
+          grant_type: "authorization_code",
+        }),
+      });
+      const tokens = await tokenResponse.json();
+      if (!tokenResponse.ok || !tokens.id_token) throw new Error("Google token exchange failed.");
+      const verifyResponse = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(tokens.id_token)}`);
+      const identity = await verifyResponse.json();
+      const tokenPayload = JSON.parse(Buffer.from(tokens.id_token.split(".")[1] || "", "base64url").toString("utf8"));
+      const validIssuer = identity.iss === "accounts.google.com" || identity.iss === "https://accounts.google.com";
+      if (!verifyResponse.ok || identity.aud !== googleClientId || !validIssuer || identity.email_verified !== "true" || tokenPayload.nonce !== statePayload.nonce || !validEmail(identity.email)) {
+        throw new Error("Google identity validation failed.");
+      }
+      const databaseHandle = await db();
+      const email = identity.email.toLowerCase();
+      const user = await databaseHandle.collection("users").findOne({ email, deletionState: { $exists: false } });
+      if (!user) return redirect(response, `${baseUrl}/leden?google=maak-account`, { "Set-Cookie": clearGoogleOauthCookie() });
+      if (user.googleSubject && user.googleSubject !== identity.sub) return redirect(response, `${baseUrl}/leden?google=conflict`, { "Set-Cookie": clearGoogleOauthCookie() });
+      const now = new Date();
+      let token;
+      await withTransaction(async session => {
+        await databaseHandle.collection("users").updateOne(
+          { _id: user._id, deletionState: { $exists: false } },
+          { $set: { googleSubject: identity.sub, emailVerifiedAt: user.emailVerifiedAt || now, lastLoginAt: now } },
+          { session },
+        );
+        await writeAudit(databaseHandle, "auth.google.login", { subjectId: user._id }, { session });
+        token = await createSession(databaseHandle, user, { session });
+      });
+      return redirect(response, `${baseUrl}/leden`, { "Set-Cookie": [sessionCookie(token), clearGoogleOauthCookie()] });
+    } catch {
+      return redirect(response, `${baseUrl}/leden?google=mislukt`, { "Set-Cookie": clearGoogleOauthCookie() });
     }
   }
   if (pathname === "/api/contact" && method === "POST") {

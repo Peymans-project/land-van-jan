@@ -653,3 +653,14 @@ test("responses carry security headers", () => {
   assert.match(headers["Content-Security-Policy"], /frame-ancestors 'none'/);
   assert.equal(headers["X-Frame-Options"], "DENY");
 });
+
+test("Google login uses a server-side authorization-code flow and only links existing accounts", () => {
+  assert.match(serverSource, /\/api\/auth\/google\/start/);
+  assert.match(serverSource, /response_type:\s*"code"/);
+  assert.match(serverSource, /scope:\s*"openid email profile"/);
+  assert.match(serverSource, /lvj_google_oauth=.*HttpOnly; SameSite=Lax/);
+  assert.match(serverSource, /oauth2\.googleapis\.com\/tokeninfo/);
+  assert.match(serverSource, /identity\.aud !== googleClientId/);
+  assert.match(serverSource, /tokenPayload\.nonce !== statePayload\.nonce/);
+  assert.match(serverSource, /if \(!user\) return redirect\(response, `\$\{baseUrl\}\/leden\?google=maak-account`/);
+});
