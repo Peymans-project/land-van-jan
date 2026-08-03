@@ -108,6 +108,17 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .section-intro h2 { margin: 0; }
 .programme .section-intro h2 { max-width: 730px; }
 .activity-list { border-top: 1px solid var(--line); }
+.activity-copy { min-width: 0; }
+.activity-copy > p { white-space: pre-line; }
+.activity-media { display: block; width: 100%; max-height: 420px; margin: 0 0 22px; object-fit: cover; object-position: center; background: #d9d3c8; }
+.activity.align-center .activity-copy { text-align: center; }
+.activity-rust { --activity-accent: #a84824; }
+.activity-green { --activity-accent: #143827; }
+.activity-sand { --activity-accent: #9b8063; }
+.activity-gold { --activity-accent: #a17619; }
+.activity-plum { --activity-accent: #6a3955; }
+.activity h3 { color: var(--activity-accent, var(--ink)); }
+.calendar-link { display: inline-flex; margin-top: 30px; }
 .activity { display: grid; grid-template-columns: 90px 150px minmax(260px, 1fr) 140px; align-items: center; gap: 25px; border-bottom: 1px solid var(--line); padding: 25px 10px; }
 .date { display: grid; justify-items: center; line-height: 1; }
 .date strong { font-family: var(--serif); font-size: 44px; font-weight: 400; }
@@ -227,7 +238,7 @@ textarea { resize: vertical; }
 .admin-stats article { border-radius: 16px; background: #e7e1d7; padding: 24px; }
 .admin-stats b { display: block; margin-bottom: 8px; font-family: var(--serif); font-size: 46px; font-weight: 400; line-height: 1; }
 .admin-stats span { color: var(--muted); font-size: 12px; }
-.manager-grid { display: grid; grid-template-columns: minmax(360px, .9fr) minmax(420px, 1.1fr); gap: 36px; align-items: start; }
+.manager-grid { display: grid; grid-template-columns: minmax(520px, 1.25fr) minmax(360px, .75fr); gap: 36px; align-items: start; }
 .manager-form { background: var(--ink); color: var(--white); padding: 34px; }
 .manager-form h2 { margin: 0; color: var(--white); font-size: 38px; }
 .manager-form .text-button { color: var(--white); }
@@ -236,6 +247,14 @@ textarea { resize: vertical; }
 .manager-list > article > div { display: grid; gap: 6px; }
 .manager-list > article > div:last-child { grid-auto-flow: column; align-content: center; gap: 18px; }
 .manager-list span { color: var(--muted); font-size: 12px; }
+.manager-form small { color: rgba(255,255,255,.65); font-weight: 400; line-height: 1.5; }
+.media-fields { display: grid; gap: 14px; padding: 20px; border: 1px solid rgba(255,255,255,.18); }
+.media-fields p { margin: 0; color: rgba(255,255,255,.66); font-size: 12px; line-height: 1.55; }
+.calendar-integration { display: grid; grid-template-columns: 1fr auto; gap: 35px; align-items: center; margin: 34px 0; padding: 28px 32px; color: var(--white); background: #143827; }
+.calendar-integration h2, .calendar-integration p { margin: 0; color: inherit; }
+.calendar-integration > div { display: grid; gap: 10px; }
+.calendar-integration > div:last-child { justify-items: start; }
+.calendar-integration .text-link { color: var(--white); }
 .attendee-list, .member-table, .admin-transfer, .message-list { margin-top: 85px; border-top: 1px solid var(--line); padding-top: 38px; }
 .admin-transfer .table-title { align-items: start; }
 .admin-transfer .table-title > p { max-width: 520px; color: var(--muted); line-height: 1.55; }
@@ -299,6 +318,7 @@ th { color: var(--muted); font-size: 10px; letter-spacing: .13em; text-transform
   .activity { grid-template-columns: 75px 120px minmax(220px, 1fr) 110px; gap: 18px; }
   .admin-stats { grid-template-columns: repeat(2, 1fr); }
   .manager-grid { grid-template-columns: 1fr; }
+  .calendar-integration { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 800px) {

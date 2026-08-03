@@ -443,13 +443,14 @@ function ActivityFeed({ compact = false, member, openLogin, navigate }) {
       const display = formatActivity(activity);
       const isRegistered = registered.has(activity.id);
       const full = Number(activity.registeredCount || 0) >= Number(activity.capacity || Infinity);
-      return <article className="activity" key={activity.id}>
+      return <article className={`activity activity-${activity.accentColor || 'green'} align-${activity.textAlign || 'left'}`} key={activity.id}>
         <div className="date"><span>{display.day}</span><strong>{display.date}</strong><span>{display.month}</span></div>
         <p className="time">{display.time}</p>
-        <div><h3>{activity.title}</h3><p>{activity.description}</p><small>{activity.location}{activity.capacity ? ` · ${Math.max(0, activity.capacity - (activity.registeredCount || 0))} plekken vrij` : ''}</small></div>
-        <button className="text-button" type="button" disabled={full && !isRegistered} onClick={() => toggleRegistration(activity)}>{isRegistered ? 'Afmelden' : full ? 'Vol' : member ? 'Aanmelden' : 'Log in'} <span aria-hidden="true">→</span></button>
+        <div className="activity-copy">{activity.imageUrl && <img className="activity-media" src={activity.imageUrl} alt="" loading="lazy" />}{activity.videoUrl && <video className="activity-media" src={activity.videoUrl} controls preload="metadata" playsInline />}<h3>{activity.title}</h3><p>{activity.description}</p><small>{activity.location}{activity.source === 'hipsy' ? ' · via Hipsy' : activity.capacity ? ` · ${Math.max(0, activity.capacity - (activity.registeredCount || 0))} plekken vrij` : ''}</small></div>
+        {activity.ticketUrl ? <a className="text-button" href={activity.ticketUrl} target="_blank" rel="noreferrer">Tickets <span aria-hidden="true">→</span></a> : <button className="text-button" type="button" disabled={full && !isRegistered} onClick={() => toggleRegistration(activity)}>{isRegistered ? 'Afmelden' : full ? 'Vol' : member ? 'Aanmelden' : 'Log in'} <span aria-hidden="true">→</span></button>}
       </article>;
     })}</div>}
+    {!compact && <a className="underlined calendar-link" href="/api/calendar.ics">Abonneer op de kalender <span aria-hidden="true">↗</span></a>}
     {compact && <AppLink to="/agenda" navigate={navigate} className="underlined">Bekijk volledig overzicht <span aria-hidden="true">→</span></AppLink>}
   </section>;
 }
@@ -646,7 +647,7 @@ function MemberDashboard({ member, setMember, logout, setNotice, navigate }) {
   </section>;
 }
 
-const EMPTY_ACTIVITY = { id: '', title: '', description: '', location: 'Land van Jan, Huissen', startsAt: '', endsAt: '', capacity: 12, status: 'draft' };
+const EMPTY_ACTIVITY = { id: '', title: '', description: '', location: 'Land van Jan, Huissen', startsAt: '', endsAt: '', capacity: 12, status: 'draft', accentColor: 'green', textAlign: 'left', imageUrl: '', videoUrl: '' };
 
 function toLocalInput(value) {
   if (!value) return '';
@@ -666,6 +667,7 @@ function AdminDashboard({ member }) {
   const [activities, setActivities] = useState([]);
   const [messages, setMessages] = useState([]);
   const [setup, setSetup] = useState(null);
+  const [hipsy, setHipsy] = useState(null);
   const [editing, setEditing] = useState(EMPTY_ACTIVITY);
   const [attendees, setAttendees] = useState(null);
   const [state, setState] = useState('loading');
@@ -673,13 +675,14 @@ function AdminDashboard({ member }) {
   const load = async () => {
     setState('loading');
     const results = await Promise.allSettled([
-      api('/api/admin/members'), api('/api/admin/activities'), api('/api/admin/contact-messages'), api('/api/setup/status'),
+      api('/api/admin/members'), api('/api/admin/activities'), api('/api/admin/contact-messages'), api('/api/setup/status'), api('/api/admin/hipsy/status'),
     ]);
     if (results[0].status === 'rejected' || results[1].status === 'rejected') { setNotice(results.find((item) => item.status === 'rejected')?.reason?.message || 'Beheer kon niet laden.'); setState('error'); return; }
     setMembers(results[0].value.members || []);
     setActivities(results[1].value.activities || []);
     setMessages(results[2].status === 'fulfilled' ? results[2].value.messages || [] : []);
     setSetup(results[3].status === 'fulfilled' ? results[3].value : null);
+    setHipsy(results[4].status === 'fulfilled' ? results[4].value : null);
     setState('ready');
   };
   useEffect(() => { if (authorized) load(); }, [authorized]);
@@ -689,13 +692,19 @@ function AdminDashboard({ member }) {
     const body = {
       title: data.get('title'), description: data.get('description'), location: data.get('location'),
       startsAt: data.get('startsAt'), endsAt: data.get('endsAt'),
-      capacity: Number(data.get('capacity')), status: data.get('status'),
+      capacity: Number(data.get('capacity')), status: data.get('status'), accentColor: data.get('accentColor'), textAlign: data.get('textAlign'),
+      imageUrl: data.get('imageUrl'), videoUrl: data.get('videoUrl'),
     };
     setNotice('Opslaan…');
     try {
       await api(editing.id ? `/api/admin/activities/${editing.id}` : '/api/admin/activities', { method: editing.id ? 'PATCH' : 'POST', body: JSON.stringify(body) });
       setEditing(EMPTY_ACTIVITY); setNotice(editing.id ? 'Activiteit bijgewerkt.' : 'Activiteit aangemaakt.'); await load();
     } catch (error) { setNotice(error.message); }
+  };
+  const syncHipsy = async () => {
+    setNotice('Hipsy-agenda synchroniseren…');
+    try { const result = await api('/api/admin/hipsy/sync', { method: 'POST' }); setNotice(`${result.imported} Hipsy-activiteiten gesynchroniseerd.`); await load(); }
+    catch (error) { setNotice(error.message); }
   };
   const showAttendees = async (activity) => {
     setNotice('');
@@ -724,6 +733,7 @@ function AdminDashboard({ member }) {
     {state === 'loading' && <DashboardLoading />}{state === 'error' && <DashboardError message={notice} />}
     {state === 'ready' && <>
       <section className="admin-stats"><article><b>{members.length}</b><span>leden</span></article><article><b>{activities.filter((item) => item.status === 'published').length}</b><span>gepubliceerde activiteiten</span></article><article><b>{messages.length}</b><span>contactberichten</span></article><article><b>{BILLING_READY_STATES.has(setup?.billing) ? 'Gereed' : 'Actie'}</b><span>betaalconfiguratie</span></article></section>
+      <section className="calendar-integration"><div><p className="eyebrow">KALENDERKOPPELING</p><h2>Hipsy & iCal</h2><p>{hipsy?.state === 'ready' ? 'Hipsy is gekoppeld en wordt automatisch bijgewerkt.' : hipsy?.state === 'not_configured' ? 'Zet één keer HIPSY_API_KEY in Railway om Hipsy automatisch te koppelen.' : 'De koppeling wordt voorbereid.'}</p></div><div><button className="button" type="button" onClick={syncHipsy} disabled={hipsy?.state === 'not_configured'}>Nu synchroniseren</button><a className="text-link" href="/api/calendar.ics">Open iCal-feed →</a></div></section>
       <section className="manager-grid">
         <form className="manager-form" onSubmit={saveActivity} key={editing.id || 'new'}>
           <div className="table-title"><h2>{editing.id ? 'Activiteit bewerken' : 'Nieuwe activiteit'}</h2>{editing.id && <button className="text-button" type="button" onClick={() => setEditing(EMPTY_ACTIVITY)}>Annuleren</button>}</div>
@@ -731,7 +741,9 @@ function AdminDashboard({ member }) {
           <label>Locatie<input name="location" defaultValue={editing.location} maxLength="180" required /></label>
           <div className="form-row"><label>Start<input name="startsAt" type="datetime-local" defaultValue={toLocalInput(editing.startsAt)} required /></label><label>Einde<input name="endsAt" type="datetime-local" defaultValue={toLocalInput(editing.endsAt)} required /></label></div>
           <div className="form-row"><label>Capaciteit<input name="capacity" type="number" min="1" max="10000" defaultValue={editing.capacity} required /></label><label>Status<select name="status" defaultValue={editing.status}><option value="draft">Concept</option><option value="published">Gepubliceerd</option><option value="cancelled">Geannuleerd</option></select></label></div>
-          <label>Beschrijving<textarea name="description" rows="5" maxLength="10000" defaultValue={editing.description} required /></label>
+          <div className="form-row"><label>Kleur<select name="accentColor" defaultValue={editing.accentColor || 'green'}><option value="green">Landgroen</option><option value="rust">Terracotta</option><option value="sand">Zand</option><option value="gold">Goud</option><option value="plum">Pruim</option></select></label><label>Tekst<select name="textAlign" defaultValue={editing.textAlign || 'left'}><option value="left">Links</option><option value="center">Gecentreerd</option></select></label></div>
+          <label>Beschrijving<textarea name="description" rows="10" maxLength="10000" defaultValue={editing.description} required /><small>Gebruik witregels om de tekst rustig op te delen.</small></label>
+          <div className="media-fields"><label>Foto-URL<input name="imageUrl" type="url" defaultValue={editing.imageUrl || ''} placeholder="https://…" /></label><label>Video-URL<input name="videoUrl" type="url" defaultValue={editing.videoUrl || ''} placeholder="https://…" /></label><p>Gebruik permanente https-links. Foto's worden responsive gecropt; video krijgt alleen nette afspeelbediening.</p></div>
           <button className="button" type="submit">{editing.id ? 'Wijzigingen opslaan' : 'Activiteit maken'} <span aria-hidden="true">→</span></button>
         </form>
         <div className="manager-list"><h2>Bestaande activiteiten</h2>{activities.length ? activities.map((item) => <article key={item.id}><div><b>{item.title}</b><span>{formatActivityDateTime(item.startsAt)} · {item.registeredCount}/{item.capacity} · {item.status}</span></div><div><button className="text-button" type="button" onClick={() => setEditing(item)}>Bewerk</button><button className="text-button" type="button" onClick={() => showAttendees(item)}>Deelnemers</button></div></article>) : <p className="empty-copy">Nog geen activiteiten aangemaakt.</p>}</div>

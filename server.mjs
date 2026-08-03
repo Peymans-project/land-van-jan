@@ -54,6 +54,7 @@ const adminEmails = new Set((process.env.ADMIN_EMAILS || "").split(",").map(valu
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY || "";
 const googleClientId = process.env.GOOGLE_CLIENT_ID || "";
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET || "";
+const hipsyApiKey = process.env.HIPSY_API_KEY || "";
 const configuredAppBaseUrl = normalizeBaseUrl(process.env.APP_BASE_URL || "");
 const railwayPublicDomain = String(process.env.RAILWAY_PUBLIC_DOMAIN || "").trim();
 const PUBLIC_ROUTES = new Set(["/", "/over-het-land", "/agenda", "/verhalen", "/contact", "/lid-worden", "/privacy", "/leden", "/beheer", "/404"]);
@@ -71,6 +72,9 @@ let stripeClient;
 let adminBootstrapState = "not_checked";
 let privacyDeletionSweepPromise;
 let billingSetupRuntimeState = "pending";
+let hipsySyncPromise;
+let hipsyLastSyncAt;
+let hipsyLastError = "";
 const rateWindows = new Map();
 const stripeSetupPromises = new Map();
 
@@ -556,7 +560,21 @@ export function safeActivity(activity) {
     month: String(startParts.month || "").replace(".", "").toUpperCase(),
     time: startParts.hour ? `${startParts.hour}:${startParts.minute} – ${endParts.hour || ""}:${endParts.minute || ""}` : "",
     text: activity.description,
+    accentColor: activity.accentColor || "green", imageUrl: activity.imageUrl || "", videoUrl: activity.videoUrl || "",
+    textAlign: activity.textAlign || "left", source: activity.source || "land-van-jan", ticketUrl: activity.ticketUrl || "",
   };
+}
+const ACTIVITY_COLORS = new Set(["green", "rust", "sand", "gold", "plum"]);
+const ACTIVITY_ALIGNMENTS = new Set(["left", "center"]);
+function safeMediaUrl(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  if (text.length > 2048) throw Object.assign(new Error("De media-URL is te lang."), { statusCode: 400 });
+  if (text.startsWith("/assets/")) return text;
+  let parsed;
+  try { parsed = new URL(text); } catch { throw Object.assign(new Error("Gebruik een geldige https-media-URL."), { statusCode: 400 }); }
+  if (parsed.protocol !== "https:") throw Object.assign(new Error("Media moet via https worden geladen."), { statusCode: 400 });
+  return parsed.toString();
 }
 export function readActivityFields(body, existing = {}) {
   const title = body.title === undefined ? existing.title : String(body.title || "").trim();
@@ -568,10 +586,61 @@ export function readActivityFields(body, existing = {}) {
   const capacity = body.capacity === undefined ? existing.capacity : Number(body.capacity);
   const requestedStatus = body.status === undefined && typeof body.published === "boolean" ? (body.published ? "published" : "draft") : body.status;
   const status = requestedStatus === undefined ? (existing.status || "draft") : String(requestedStatus);
+  const accentColor = body.accentColor === undefined ? (existing.accentColor || "green") : String(body.accentColor);
+  const textAlign = body.textAlign === undefined ? (existing.textAlign || "left") : String(body.textAlign);
+  const imageUrl = body.imageUrl === undefined ? (existing.imageUrl || "") : safeMediaUrl(body.imageUrl);
+  const videoUrl = body.videoUrl === undefined ? (existing.videoUrl || "") : safeMediaUrl(body.videoUrl);
   if (!title || title.length > 160 || !description || description.length > 10000 || !location || location.length > 180 || Number.isNaN(startsAt?.getTime()) || Number.isNaN(endsAt?.getTime()) || endsAt <= startsAt || !Number.isInteger(capacity) || capacity < 1 || capacity > 10000 || !["draft", "published", "cancelled"].includes(status)) {
     const error = new Error("Controleer titel, omschrijving, locatie, datum, capaciteit en status."); error.statusCode = 400; throw error;
   }
-  return { title, description, location, startsAt, endsAt, capacity, status };
+  if (!ACTIVITY_COLORS.has(accentColor) || !ACTIVITY_ALIGNMENTS.has(textAlign)) throw Object.assign(new Error("Kies een geldige kleur en uitlijning."), { statusCode: 400 });
+  return { title, description, location, startsAt, endsAt, capacity, status, accentColor, textAlign, imageUrl, videoUrl };
+}
+
+function escapeIcal(value) {
+  return String(value || "").replace(/\\/g, "\\\\").replace(/\r?\n/g, "\\n").replace(/,/g, "\\,").replace(/;/g, "\\;");
+}
+function icalDate(value) { return new Date(value).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z"); }
+export function activitiesToIcal(activities, baseUrl = "https://landvanjan.com") {
+  const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Land van Jan//Agenda//NL", "CALSCALE:GREGORIAN", "METHOD:PUBLISH", "X-WR-CALNAME:Land van Jan"];
+  for (const activity of activities) {
+    lines.push("BEGIN:VEVENT", `UID:${escapeIcal(activity.sourceKey || activity._id)}@landvanjan.com`, `DTSTAMP:${icalDate(activity.updatedAt || new Date())}`, `DTSTART:${icalDate(activity.startsAt)}`, `DTEND:${icalDate(activity.endsAt)}`, `SUMMARY:${escapeIcal(activity.title)}`, `DESCRIPTION:${escapeIcal(activity.description)}`, `LOCATION:${escapeIcal(activity.location)}`, `URL:${escapeIcal(activity.ticketUrl || `${baseUrl}/agenda`)}`, "END:VEVENT");
+  }
+  lines.push("END:VCALENDAR");
+  return `${lines.join("\r\n")}\r\n`;
+}
+
+async function hipsyGet(path) {
+  const response = await fetch(`https://api.hipsy.nl${path}`, { headers: { Accept: "application/json", Authorization: `Bearer ${hipsyApiKey}` }, signal: AbortSignal.timeout(12_000) });
+  if (!response.ok) throw new Error(`Hipsy API ${response.status}`);
+  return response.json();
+}
+async function syncHipsyActivities(databaseHandle) {
+  if (!hipsyApiKey) return { state: "not_configured", imported: 0 };
+  if (hipsySyncPromise) return hipsySyncPromise;
+  hipsySyncPromise = (async () => {
+    const organisations = await hipsyGet("/v1/organisations/index");
+    const organisation = organisations?.data?.[0];
+    if (!organisation?.slug) throw new Error("Geen Hipsy-organisatie gevonden");
+    const payload = await hipsyGet(`/v1/organisation/${encodeURIComponent(organisation.slug)}/events?period=upcoming&limit=100`);
+    const now = new Date();
+    const operations = (payload?.data || []).map(event => ({ updateOne: {
+      filter: { source: "hipsy", sourceKey: `hipsy:${event.id}` },
+      update: { $set: {
+        source: "hipsy", sourceKey: `hipsy:${event.id}`, title: String(event.title || "Activiteit").slice(0, 160),
+        description: String(event.description || "Bekijk de activiteit en tickets via Hipsy.").slice(0, 10000),
+        location: String(event.location || DEFAULT_ACTIVITY_LOCATION).slice(0, 180), startsAt: new Date(event.date),
+        endsAt: new Date(event.date_until || new Date(event.date).getTime() + 2 * 60 * 60 * 1000), capacity: 10000,
+        status: "published", accentColor: "green", textAlign: "left", imageUrl: safeMediaUrl(event.picture || event.picture_small || ""),
+        videoUrl: "", ticketUrl: safeMediaUrl(event.url_ticketshop || event.url_hipsy || ""), hipsyUrl: safeMediaUrl(event.url_hipsy || ""),
+        updatedAt: now,
+      }, $setOnInsert: { registeredCount: 0, createdAt: now } }, upsert: true,
+    } }));
+    if (operations.length) await databaseHandle.collection("activities").bulkWrite(operations, { ordered: false });
+    hipsyLastSyncAt = now; hipsyLastError = "";
+    return { state: "ready", imported: operations.length, organisation: organisation.name || organisation.slug, syncedAt: now };
+  })().catch(error => { hipsyLastError = error.message; throw error; }).finally(() => { hipsySyncPromise = undefined; });
+  return hipsySyncPromise;
 }
 async function requireUser(request) {
   const user = await currentUser(request);
@@ -1876,8 +1945,25 @@ async function handleApi(request, response, pathname) {
   }
   if (pathname === "/api/activities" && method === "GET") {
     const database = await db();
+    if (hipsyApiKey && (!hipsyLastSyncAt || Date.now() - hipsyLastSyncAt.getTime() > 15 * 60 * 1000)) await syncHipsyActivities(database).catch(() => {});
     const activities = await database.collection("activities").find({ status: "published", endsAt: { $gt: new Date() } }).sort({ startsAt: 1 }).limit(100).toArray();
     return sendJson(response, 200, { activities: activities.map(safeActivity) });
+  }
+  if (pathname === "/api/calendar.ics" && method === "GET") {
+    const database = await db();
+    if (hipsyApiKey && (!hipsyLastSyncAt || Date.now() - hipsyLastSyncAt.getTime() > 15 * 60 * 1000)) await syncHipsyActivities(database).catch(() => {});
+    const activities = await database.collection("activities").find({ status: "published", endsAt: { $gt: new Date() } }).sort({ startsAt: 1 }).limit(250).toArray();
+    response.writeHead(200, { ...securityHeaders(), "Content-Type": "text/calendar; charset=utf-8", "Content-Disposition": "inline; filename=land-van-jan-agenda.ics", "Cache-Control": "public, max-age=300" });
+    return response.end(activitiesToIcal(activities, canonicalBaseUrl(request)));
+  }
+  if (pathname === "/api/admin/hipsy/status" && method === "GET") {
+    await requireAdmin(request);
+    return sendJson(response, 200, { state: hipsyApiKey ? (hipsyLastError ? "error" : hipsyLastSyncAt ? "ready" : "pending") : "not_configured", syncedAt: hipsyLastSyncAt || null });
+  }
+  if (pathname === "/api/admin/hipsy/sync" && method === "POST") {
+    await requireAdmin(request);
+    if (!hipsyApiKey) return sendApiError(response, 503, "HIPSY_API_KEY ontbreekt nog in Railway.");
+    return sendJson(response, 200, await syncHipsyActivities(await db()));
   }
   if (pathname === "/api/member/registrations" && method === "GET") {
     const user = await requireUser(request);

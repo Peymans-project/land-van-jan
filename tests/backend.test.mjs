@@ -15,6 +15,7 @@ process.env.NODE_ENV = "test";
 
 const {
   claimStripeEvent,
+  activitiesToIcal,
   createLandVanJanServer,
   decideAdminBootstrap,
   decryptStripeSecret,
@@ -393,6 +394,17 @@ test("activity input accepts the current admin form safely", () => {
   assert.equal(safe.published, true);
   assert.equal(safe.time, "10:00 – 12:00");
   assert.equal(safe.text, fields.description);
+  assert.equal(safe.accentColor, "green");
+  assert.equal(safe.textAlign, "left");
+  assert.throws(() => readActivityFields({ ...fields, startsAt: "2026-08-02T10:00", endsAt: "2026-08-02T12:00", imageUrl: "javascript:alert(1)" }), error => error.statusCode === 400);
+});
+
+test("public calendar emits safe subscription events", () => {
+  const calendar = activitiesToIcal([{ _id: "activity-1", title: "Oogst, soep & muziek", description: "Samen; buiten", location: "Huissen", startsAt: new Date("2026-08-02T08:00:00Z"), endsAt: new Date("2026-08-02T10:00:00Z"), updatedAt: new Date("2026-08-01T10:00:00Z") }]);
+  assert.match(calendar, /BEGIN:VCALENDAR\r\n/);
+  assert.match(calendar, /SUMMARY:Oogst\\, soep & muziek/);
+  assert.match(calendar, /DESCRIPTION:Samen\\; buiten/);
+  assert.match(calendar, /URL:https:\/\/landvanjan\.com\/agenda/);
 });
 
 test("webhook signing secrets are authenticated-encrypted with a stable server secret", () => {
