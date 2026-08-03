@@ -620,11 +620,15 @@ async function syncHipsyActivities(databaseHandle) {
   if (hipsySyncPromise) return hipsySyncPromise;
   hipsySyncPromise = (async () => {
     const organisations = await hipsyGet("/v1/organisations/index");
-    const organisation = organisations?.data?.[0];
-    if (!organisation?.slug) throw new Error("Geen Hipsy-organisatie gevonden");
-    const payload = await hipsyGet(`/v1/organisation/${encodeURIComponent(organisation.slug)}/events?period=upcoming&limit=100`);
+    const availableOrganisations = (organisations?.data || []).filter(organisation => organisation?.slug);
+    if (!availableOrganisations.length) throw new Error("Geen Hipsy-organisatie gevonden");
+    const eventPayloads = await Promise.all(availableOrganisations.map(async organisation => ({
+      organisation,
+      payload: await hipsyGet(`/v1/organisation/${encodeURIComponent(organisation.slug)}/events?period=upcoming&limit=100`),
+    })));
     const now = new Date();
-    const operations = (payload?.data || []).map(event => ({ updateOne: {
+    const events = eventPayloads.flatMap(({ organisation, payload }) => (payload?.data || []).map(event => ({ ...event, organisationName: organisation.name || organisation.slug })));
+    const operations = events.map(event => ({ updateOne: {
       filter: { source: "hipsy", sourceKey: `hipsy:${event.id}` },
       update: { $set: {
         source: "hipsy", sourceKey: `hipsy:${event.id}`, title: String(event.title || "Activiteit").slice(0, 160),
@@ -632,13 +636,13 @@ async function syncHipsyActivities(databaseHandle) {
         location: String(event.location || DEFAULT_ACTIVITY_LOCATION).slice(0, 180), startsAt: new Date(event.date),
         endsAt: new Date(event.date_until || new Date(event.date).getTime() + 2 * 60 * 60 * 1000), capacity: 10000,
         status: "published", accentColor: "green", textAlign: "left", imageUrl: safeMediaUrl(event.picture || event.picture_small || ""),
-        videoUrl: "", ticketUrl: safeMediaUrl(event.url_ticketshop || event.url_hipsy || ""), hipsyUrl: safeMediaUrl(event.url_hipsy || ""),
+        videoUrl: "", ticketUrl: safeMediaUrl(event.url_ticketshop || event.url_hipsy || ""), hipsyUrl: safeMediaUrl(event.url_hipsy || ""), hipsyOrganisation: event.organisationName,
         updatedAt: now,
       }, $setOnInsert: { registeredCount: 0, createdAt: now } }, upsert: true,
     } }));
     if (operations.length) await databaseHandle.collection("activities").bulkWrite(operations, { ordered: false });
     hipsyLastSyncAt = now; hipsyLastError = "";
-    return { state: "ready", imported: operations.length, organisation: organisation.name || organisation.slug, syncedAt: now };
+    return { state: "ready", imported: operations.length, organisations: availableOrganisations.length, syncedAt: now };
   })().catch(error => { hipsyLastError = error.message; throw error; }).finally(() => { hipsySyncPromise = undefined; });
   return hipsySyncPromise;
 }
