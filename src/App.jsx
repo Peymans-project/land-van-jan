@@ -219,7 +219,7 @@ function Home({ navigate, member, openLogin }) {
       <LandImage imageKey="land-hero" eager sizes="100vw" />
       <div className="hero-wash" />
       <div className="hero-copy">
-        <h1 id="hero-title"><span>Land</span><span>van Jan</span><em>Jan van alle man</em></h1>
+        <h1 id="hero-title"><span>Land</span><span>van Jan</span><em>En alle man</em></h1>
         <p>Een levend project in Huissen.<br />Waar kas, boomgaard en gemeenschap samen groeien.</p>
       </div>
       <div className="paths" aria-label="Kies een route">
