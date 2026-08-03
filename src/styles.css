@@ -57,7 +57,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .hero > .land-image { position: absolute; inset: 0; }
 .hero-wash { position: absolute; inset: 0; background: rgba(7, 29, 19, .28); }
 .hero-copy { position: absolute; inset: 142px max(5vw, calc((100vw - 1440px) / 2)) 205px; z-index: 2; display: grid; grid-template-rows: auto 1fr auto; align-items: start; }
-.hero-land h1 { position: relative; width: min(880px, 74vw); margin: 0; color: var(--white); font-family: var(--sans); font-size: clamp(96px, 12.5vw, 186px); font-weight: 500; letter-spacing: -.085em; line-height: .76; }
+.hero-land h1 { position: relative; width: max-content; max-width: min(880px, 74vw); margin: 0; color: var(--white); font-family: var(--sans); font-size: clamp(96px, 12.5vw, 186px); font-weight: 500; letter-spacing: -.085em; line-height: .76; }
 .hero-land h1 span { display: block; }
 .hero-land h1 em { display: block; margin-top: 17px; color: var(--white); font-family: var(--sans); font-size: clamp(15px, 1.35vw, 21px); font-style: normal; font-weight: 600; letter-spacing: .16em; line-height: 1; text-align: right; text-transform: uppercase; white-space: nowrap; }
 .hero-copy > p { align-self: end; max-width: 420px; margin: 0 0 10px; color: var(--white); font-size: 16px; font-weight: 600; line-height: 1.5; }
@@ -317,7 +317,7 @@ th { color: var(--muted); font-size: 10px; letter-spacing: .13em; text-transform
   .hero { min-height: 890px; height: auto; }
   .hero > .land-image img { object-position: 52% 50% !important; }
   .hero-copy { inset: 118px 20px 420px; grid-template-rows: auto 1fr auto; }
-  .hero-land h1 { width: 100%; max-width: 100%; font-size: 22vw; line-height: .76; }
+  .hero-land h1 { width: max-content; max-width: 100%; font-size: 22vw; line-height: .76; }
   .hero-land h1 em { margin-top: 14px; font-size: 15px; letter-spacing: .15em; text-align: right; }
   .hero-copy > p { max-width: 315px; font-size: 14px; }
   .paths { right: 20px; bottom: -58px; left: 20px; grid-template-columns: 1fr; border-radius: 14px; }
