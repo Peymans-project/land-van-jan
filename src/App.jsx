@@ -129,6 +129,7 @@ function App() {
   const [loginOpen, setLoginOpen] = useState(false);
   const [loginMode, setLoginMode] = useState('login');
   const [notice, setNotice] = useState('');
+  const [uploading, setUploading] = useState('');
   const [member, setMember] = useState(null);
   const [authReady, setAuthReady] = useState(false);
 
@@ -706,6 +707,18 @@ function AdminDashboard({ member }) {
     try { const result = await api('/api/admin/hipsy/sync', { method: 'POST' }); setNotice(`${result.imported} Hipsy-activiteiten gesynchroniseerd.`); await load(); }
     catch (error) { setNotice(error.message); }
   };
+  const uploadMedia = async (file, kind) => {
+    if (!file) return;
+    setUploading(kind); setNotice(`${kind === 'image' ? 'Foto' : 'Video'} uploaden…`);
+    try {
+      const response = await fetch('/api/admin/media', { method: 'POST', credentials: 'include', headers: { Accept: 'application/json', 'Content-Type': file.type, 'X-File-Name': encodeURIComponent(file.name) }, body: file });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Uploaden is niet gelukt.');
+      setEditing((current) => ({ ...current, [kind === 'image' ? 'imageUrl' : 'videoUrl']: data.url }));
+      setNotice(`${kind === 'image' ? 'Foto' : 'Video'} staat klaar en wordt automatisch aan de activiteit gekoppeld.`);
+    } catch (error) { setNotice(error.message); }
+    finally { setUploading(''); }
+  };
   const showAttendees = async (activity) => {
     setNotice('');
     try { const data = await api(`/api/admin/activities/${activity.id}/registrations`); setAttendees({ activity, rows: data.registrations || [] }); }
@@ -743,7 +756,8 @@ function AdminDashboard({ member }) {
           <div className="form-row"><label>Capaciteit<input name="capacity" type="number" min="1" max="10000" defaultValue={editing.capacity} required /></label><label>Status<select name="status" defaultValue={editing.status}><option value="draft">Concept</option><option value="published">Gepubliceerd</option><option value="cancelled">Geannuleerd</option></select></label></div>
           <div className="form-row"><label>Kleur<select name="accentColor" defaultValue={editing.accentColor || 'green'}><option value="green">Landgroen</option><option value="rust">Terracotta</option><option value="sand">Zand</option><option value="gold">Goud</option><option value="plum">Pruim</option></select></label><label>Tekst<select name="textAlign" defaultValue={editing.textAlign || 'left'}><option value="left">Links</option><option value="center">Gecentreerd</option></select></label></div>
           <label>Beschrijving<textarea name="description" rows="10" maxLength="10000" defaultValue={editing.description} required /><small>Gebruik witregels om de tekst rustig op te delen.</small></label>
-          <div className="media-fields"><label>Foto-URL<input name="imageUrl" type="url" defaultValue={editing.imageUrl || ''} placeholder="https://…" /></label><label>Video-URL<input name="videoUrl" type="url" defaultValue={editing.videoUrl || ''} placeholder="https://…" /></label><p>Gebruik permanente https-links. Foto's worden responsive gecropt; video krijgt alleen nette afspeelbediening.</p></div>
+          <div className="media-fields"><h3>Foto & video</h3><label className="upload-control">Foto kiezen<input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => uploadMedia(event.target.files?.[0], 'image')} disabled={Boolean(uploading)} /><span>{uploading === 'image' ? 'Uploaden…' : editing.imageUrl ? 'Foto toegevoegd · kies om te vervangen' : 'JPG, PNG of WebP'}</span></label><input name="imageUrl" type="hidden" value={editing.imageUrl || ''} readOnly />{editing.imageUrl && <img className="media-preview" src={editing.imageUrl} alt="Voorbeeld van activiteit" />}
+          <label className="upload-control">Video kiezen<input type="file" accept="video/mp4,video/webm" onChange={(event) => uploadMedia(event.target.files?.[0], 'video')} disabled={Boolean(uploading)} /><span>{uploading === 'video' ? 'Uploaden…' : editing.videoUrl ? 'Video toegevoegd · kies om te vervangen' : 'MP4 of WebM, maximaal 50 MB'}</span></label><input name="videoUrl" type="hidden" value={editing.videoUrl || ''} readOnly />{editing.videoUrl && <video className="media-preview" src={editing.videoUrl} controls preload="metadata" playsInline />}<p>Het bestand wordt veilig opgeslagen en de link wordt automatisch ingevuld.</p></div>
           <button className="button" type="submit">{editing.id ? 'Wijzigingen opslaan' : 'Activiteit maken'} <span aria-hidden="true">→</span></button>
         </form>
         <div className="manager-list"><h2>Bestaande activiteiten</h2>{activities.length ? activities.map((item) => <article key={item.id}><div><b>{item.title}</b><span>{formatActivityDateTime(item.startsAt)} · {item.registeredCount}/{item.capacity} · {item.status}</span></div><div><button className="text-button" type="button" onClick={() => setEditing(item)}>Bewerk</button><button className="text-button" type="button" onClick={() => showAttendees(item)}>Deelnemers</button></div></article>) : <p className="empty-copy">Nog geen activiteiten aangemaakt.</p>}</div>

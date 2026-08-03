@@ -396,6 +396,8 @@ test("activity input accepts the current admin form safely", () => {
   assert.equal(safe.text, fields.description);
   assert.equal(safe.accentColor, "green");
   assert.equal(safe.textAlign, "left");
+  const withUpload = readActivityFields({ ...fields, startsAt: "2026-08-02T10:00", endsAt: "2026-08-02T12:00", imageUrl: "/api/media/64ca8c9467d2dd14f198a001" });
+  assert.equal(withUpload.imageUrl, "/api/media/64ca8c9467d2dd14f198a001");
   assert.throws(() => readActivityFields({ ...fields, startsAt: "2026-08-02T10:00", endsAt: "2026-08-02T12:00", imageUrl: "javascript:alert(1)" }), error => error.statusCode === 400);
 });
 

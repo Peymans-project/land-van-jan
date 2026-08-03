@@ -14,7 +14,7 @@ import {
 } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
-import { MongoClient, ObjectId } from "mongodb";
+import { GridFSBucket, MongoClient, ObjectId } from "mongodb";
 import Stripe from "stripe";
 
 const scrypt = promisify(scryptCallback);
@@ -23,6 +23,8 @@ const port = Number(process.env.PORT || 3000);
 const isProduction = process.env.NODE_ENV === "production" || Boolean(process.env.RAILWAY_ENVIRONMENT);
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 14;
 const MAX_JSON_BYTES = 16 * 1024;
+const MAX_MEDIA_BYTES = 50 * 1024 * 1024;
+const ALLOWED_MEDIA_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "video/mp4", "video/webm"]);
 const PRIVACY_NOTICE_VERSION = "2026-08-02";
 const MARKETING_CONSENT_VERSION = "2026-08-02";
 const REGISTRATION_RETENTION_MS = 365 * 24 * 60 * 60 * 1000;
@@ -570,7 +572,7 @@ function safeMediaUrl(value) {
   const text = String(value || "").trim();
   if (!text) return "";
   if (text.length > 2048) throw Object.assign(new Error("De media-URL is te lang."), { statusCode: 400 });
-  if (text.startsWith("/assets/")) return text;
+  if (text.startsWith("/assets/") || /^\/api\/media\/[a-f\d]{24}$/i.test(text)) return text;
   let parsed;
   try { parsed = new URL(text); } catch { throw Object.assign(new Error("Gebruik een geldige https-media-URL."), { statusCode: 400 }); }
   if (parsed.protocol !== "https:") throw Object.assign(new Error("Media moet via https worden geladen."), { statusCode: 400 });
@@ -1953,6 +1955,16 @@ async function handleApi(request, response, pathname) {
     const activities = await database.collection("activities").find({ status: "published", endsAt: { $gt: new Date() } }).sort({ startsAt: 1 }).limit(100).toArray();
     return sendJson(response, 200, { activities: activities.map(safeActivity) });
   }
+  const mediaMatch = pathname.match(/^\/api\/media\/([a-f\d]{24})$/i);
+  if (mediaMatch && method === "GET") {
+    const database = await db();
+    const bucket = new GridFSBucket(database, { bucketName: "activity_media" });
+    const fileId = new ObjectId(mediaMatch[1]);
+    const file = await database.collection("activity_media.files").findOne({ _id: fileId });
+    if (!file || !ALLOWED_MEDIA_TYPES.has(file.metadata?.contentType)) return sendApiError(response, 404, "Media niet gevonden.");
+    response.writeHead(200, { ...securityHeaders(), "Content-Type": file.metadata.contentType, "Content-Length": file.length, "Cache-Control": "public, max-age=31536000, immutable" });
+    return bucket.openDownloadStream(fileId).on("error", () => response.destroy()).pipe(response);
+  }
   if (pathname === "/api/calendar.ics" && method === "GET") {
     const database = await db();
     if (hipsyApiKey && (!hipsyLastSyncAt || Date.now() - hipsyLastSyncAt.getTime() > 15 * 60 * 1000)) await syncHipsyActivities(database).catch(() => {});
@@ -1998,6 +2010,20 @@ async function handleApi(request, response, pathname) {
     const database = await db();
     const activities = await database.collection("activities").find({}).sort({ startsAt: 1 }).limit(250).toArray();
     return sendJson(response, 200, { activities: activities.map(safeActivity) });
+  }
+  if (pathname === "/api/admin/media" && method === "POST") {
+    const admin = await requireAdmin(request);
+    if (!allowRate(request, "admin-media", 30, 60 * 60 * 1000)) return sendApiError(response, 429, "Uploadlimiet bereikt. Probeer later opnieuw.");
+    const contentType = String(request.headers["content-type"] || "").split(";")[0].trim().toLowerCase();
+    if (!ALLOWED_MEDIA_TYPES.has(contentType)) return sendApiError(response, 415, "Gebruik JPG, PNG, WebP, MP4 of WebM.");
+    const payload = await readRawBody(request, MAX_MEDIA_BYTES);
+    if (!payload.length) return sendApiError(response, 400, "Het bestand is leeg.");
+    const originalName = decodeURIComponent(String(request.headers["x-file-name"] || "upload")).replace(/[^a-zA-Z0-9._ -]/g, "_").slice(0, 120) || "upload";
+    const database = await db();
+    const bucket = new GridFSBucket(database, { bucketName: "activity_media" });
+    const stream = bucket.openUploadStream(originalName, { metadata: { contentType, uploadedBy: admin._id, createdAt: new Date() } });
+    await new Promise((resolveUpload, rejectUpload) => { stream.once("finish", resolveUpload); stream.once("error", rejectUpload); stream.end(payload); });
+    return sendJson(response, 201, { url: `/api/media/${stream.id.toString()}`, type: contentType.startsWith("image/") ? "image" : "video" });
   }
   if (pathname === "/api/admin/activities" && method === "POST") {
     await requireAdmin(request);

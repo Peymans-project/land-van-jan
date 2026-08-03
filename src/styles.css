@@ -249,7 +249,12 @@ textarea { resize: vertical; }
 .manager-list span { color: var(--muted); font-size: 12px; }
 .manager-form small { color: rgba(255,255,255,.65); font-weight: 400; line-height: 1.5; }
 .media-fields { display: grid; gap: 14px; padding: 20px; border: 1px solid rgba(255,255,255,.18); }
+.media-fields h3 { margin: 0; color: var(--white); font-size: 24px; }
 .media-fields p { margin: 0; color: rgba(255,255,255,.66); font-size: 12px; line-height: 1.55; }
+.upload-control { position: relative; padding: 16px; border: 1px dashed rgba(255,255,255,.35); cursor: pointer; }
+.upload-control input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.upload-control span { color: rgba(255,255,255,.68); font-size: 12px; font-weight: 400; }
+.media-preview { width: 100%; max-height: 300px; object-fit: cover; background: #0c241a; }
 .calendar-integration { display: grid; grid-template-columns: 1fr auto; gap: 35px; align-items: center; margin: 34px 0; padding: 28px 32px; color: var(--white); background: #143827; }
 .calendar-integration h2, .calendar-integration p { margin: 0; color: inherit; }
 .calendar-integration > div { display: grid; gap: 10px; }
