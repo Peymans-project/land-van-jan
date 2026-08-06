@@ -216,7 +216,7 @@ function App() {
 function Home({ navigate, member, openLogin }) {
   return <>
     <section className="hero hero-land" aria-labelledby="hero-title">
-      <LandImage imageKey="boomgaard-picknick" eager sizes="(max-width: 800px) 100vw, 820px" />
+      <LandImage imageKey="boomgaard-picknick" eager sizes="100vw" />
       <div className="hero-wash" />
       <div className="hero-copy">
         <h1 id="hero-title"><span>Land</span><span>van Jan</span><em>En alle man</em></h1>
