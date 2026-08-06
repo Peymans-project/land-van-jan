@@ -96,7 +96,7 @@ function LandImage({ imageKey, alt, className = '', eager = false, sizes = '100v
       height={image.height}
       loading={eager ? 'eager' : 'lazy'}
       fetchPriority={eager ? 'high' : 'auto'}
-      decoding="async"
+      decoding={eager ? 'sync' : 'async'}
       style={{ objectPosition: image.focalPoint }}
     />
   </picture>;

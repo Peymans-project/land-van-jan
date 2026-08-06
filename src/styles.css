@@ -55,16 +55,15 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 
 .hero { position: relative; z-index: 1; min-height: 820px; height: min(94vh, 940px); overflow: visible; }
 .hero > .land-image { position: absolute; inset: 0; }
-.hero-wash { position: absolute; inset: 0; background: rgba(7, 29, 19, .28); }
+.hero-wash { position: absolute; inset: 0; background: rgba(7, 29, 19, .18); }
 .hero-copy { position: absolute; inset: 142px max(5vw, calc((100vw - 1440px) / 2)) 205px; z-index: 2; display: grid; grid-template-rows: auto 1fr auto; align-items: start; }
 .hero-land h1 { position: relative; width: max-content; max-width: min(880px, 74vw); margin: 0; color: var(--white); font-family: var(--sans); font-size: clamp(96px, 12.5vw, 186px); font-weight: 500; letter-spacing: -.085em; line-height: .76; }
 .hero-land h1 span { display: block; }
-.hero-land h1 em { display: block; margin-top: 17px; color: var(--white); font-family: var(--sans); font-size: clamp(15px, 1.35vw, 21px); font-style: normal; font-weight: 600; letter-spacing: .16em; line-height: 1; text-align: right; text-transform: uppercase; white-space: nowrap; }
+.hero-land h1 em { display: block; width: max-content; margin: 17px 0 0 auto; color: var(--white); font-family: var(--sans); font-size: clamp(15px, 1.35vw, 21px); font-style: normal; font-weight: 600; letter-spacing: .16em; line-height: 1; text-align: right; text-transform: uppercase; white-space: nowrap; }
 .hero-copy > p { align-self: end; max-width: 420px; margin: 0 0 10px; color: var(--white); font-size: 16px; font-weight: 600; line-height: 1.5; }
 .paths { position: absolute; z-index: 3; right: max(5vw, calc((100vw - 1440px) / 2)); bottom: -56px; left: max(5vw, calc((100vw - 1440px) / 2)); display: grid; grid-template-columns: repeat(3, 1fr); overflow: hidden; border-radius: 16px; background: var(--ink-deep); }
 .route-card { position: relative; display: grid; grid-template-areas: "icon icon icon" "title title title" "copy copy arrow"; grid-template-columns: 1fr 1fr auto; grid-template-rows: 50px auto 1fr; align-items: end; gap: 8px 18px; min-height: 240px; border-right: 1px solid rgba(239,245,237,.35); padding: 26px 31px 28px; color: var(--white); text-align: left; text-decoration: none; }
 .route-card:last-child { border-right: 0; }
-.route-card:hover { background: #194a31; }
 .route-icon { grid-area: icon; align-self: start; width: 43px; height: 43px; color: #e17a50; }
 .route-card strong { grid-area: title; align-self: end; font-size: 30px; font-weight: 500; letter-spacing: -.04em; line-height: 1; }
 .route-card > span { grid-area: copy; align-self: end; max-width: 250px; padding-top: 8px; color: #d2ded3; font-size: 13px; line-height: 1.45; }
@@ -156,7 +155,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .inner-page { min-height: 100vh; background: var(--paper); }
 .page-hero { position: relative; display: grid; align-items: end; min-height: 760px; overflow: hidden; color: var(--white); }
 .page-hero > .land-image, .page-hero-shade { position: absolute; inset: 0; }
-.page-hero-shade { background: linear-gradient(90deg, rgba(8,31,20,.79), rgba(8,31,20,.18) 75%); }
+.page-hero-shade { background: rgba(8,31,20,.36); }
 .page-hero-copy { position: relative; z-index: 1; width: min(760px, 100%); padding: 170px max(5vw, calc((100vw - 1440px) / 2)) 55px; }
 .page-hero h1 { margin: 0 0 24px; color: var(--white); font-size: clamp(64px, 9vw, 140px); line-height: .82; }
 .page-hero h1 em { color: #e49571; }
@@ -174,7 +173,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .gallery-grid figure { position: relative; min-height: 365px; margin: 0; overflow: hidden; background: var(--paper-soft); }
 .gallery-grid figure:first-child { min-height: 470px; }
 .gallery-grid .land-image { height: 100%; }
-.gallery-grid figcaption { position: absolute; inset: auto 0 0; padding: 54px 20px 20px; background: linear-gradient(0deg, rgba(10,30,20,.78), transparent); color: #fff; font-family: var(--serif); font-size: 23px; }
+.gallery-grid figcaption { position: absolute; inset: auto 0 0; padding: 18px 20px; background: rgba(10,30,20,.78); color: #fff; font-family: var(--serif); font-size: 23px; }
 .page-quote { background: var(--ink); color: var(--white); padding: 100px 15vw; text-align: center; }
 .page-quote p { max-width: 980px; margin: 0 auto 28px; font-family: var(--serif); font-size: clamp(36px, 5vw, 69px); letter-spacing: -.04em; line-height: .98; }
 .page-quote span { color: #d4dfd4; font-size: 10px; font-weight: 700; letter-spacing: .19em; }
@@ -343,7 +342,7 @@ th { color: var(--muted); font-size: 10px; letter-spacing: .13em; text-transform
   .hero > .land-image img { object-position: 52% 50% !important; }
   .hero-copy { inset: 118px 20px 420px; grid-template-rows: auto 1fr auto; }
   .hero-land h1 { width: max-content; max-width: 100%; font-size: 22vw; line-height: .76; }
-  .hero-land h1 em { margin-top: 14px; font-size: 15px; letter-spacing: .15em; text-align: right; }
+  .hero-land h1 em { width: max-content; margin: 14px 0 0 auto; font-size: 15px; letter-spacing: .15em; text-align: right; }
   .hero-copy > p { max-width: 315px; font-size: 14px; }
   .paths { right: 20px; bottom: -58px; left: 20px; grid-template-columns: 1fr; border-radius: 14px; }
   .route-card { grid-template-areas: "icon title arrow" "icon copy arrow"; grid-template-columns: 48px 1fr auto; grid-template-rows: auto auto; align-items: start; gap: 5px 16px; min-height: 128px; border-right: 0; border-bottom: 1px solid rgba(239,245,237,.32); padding: 19px 22px; }
