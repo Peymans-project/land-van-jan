@@ -6,7 +6,7 @@ const HOME_TIMELINE = [
   { title: 'Het land', date: 'Nu', image: 'land-hero', text: 'We beheren het land, planten, testen en leren.' },
   { title: 'De basis', date: '2024 – 2025', image: 'buitenplek', text: 'Structuur aanbrengen, kas en voorzieningen opzetten.' },
   { title: 'De groei', date: '2026 – 2027', image: 'kas-detail', text: 'Meer oogst, meer mensen, meer verbinding.' },
-  { title: 'De plek', date: 'Toekomstbeeld', image: 'toekomst', text: 'Een plek voor groei, ontmoeting en inspiratie.' },
+  { title: 'De plek', date: 'In ontwikkeling', image: 'boomgaard-wolkendek', text: 'Een plek voor groei, ontmoeting en inspiratie.' },
 ];
 
 const STATUS_LABELS = {
@@ -216,7 +216,7 @@ function App() {
 function Home({ navigate, member, openLogin }) {
   return <>
     <section className="hero hero-land" aria-labelledby="hero-title">
-      <LandImage imageKey="kas-buiten" eager sizes="100vw" />
+      <LandImage imageKey="boomgaard-picknick" eager sizes="(max-width: 800px) 100vw, 820px" />
       <div className="hero-wash" />
       <div className="hero-copy">
         <h1 id="hero-title"><span>Land</span><span>van Jan</span><em>En alle man</em></h1>
