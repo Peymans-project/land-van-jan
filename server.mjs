@@ -57,6 +57,9 @@ const stripeSecretKey = process.env.STRIPE_SECRET_KEY || "";
 const googleClientId = process.env.GOOGLE_CLIENT_ID || "";
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET || "";
 const hipsyApiKey = process.env.HIPSY_API_KEY || "";
+const transactionalEmailApiUrl = String(process.env.TRANSACTIONAL_EMAIL_API_URL || "").trim().replace(/\/+$/, "");
+const transactionalEmailApiKey = String(process.env.TRANSACTIONAL_EMAIL_API_KEY || "").trim();
+const contactNotificationEmail = String(process.env.CONTACT_NOTIFICATION_EMAIL || "contact@landvanjan.com").trim().toLowerCase();
 const configuredAppBaseUrl = normalizeBaseUrl(process.env.APP_BASE_URL || "");
 const railwayPublicDomain = String(process.env.RAILWAY_PUBLIC_DOMAIN || "").trim();
 const PUBLIC_ROUTES = new Set(["/", "/over-het-land", "/agenda", "/verhalen", "/contact", "/lid-worden", "/privacy", "/leden", "/beheer", "/404"]);
@@ -92,6 +95,21 @@ function billingConfigError() {
   if (!stripeSecretKey) return "STRIPE_SECRET_KEY ontbreekt.";
   if (!/^(?:sk|rk)_(?:test|live)_/.test(stripeSecretKey)) return "STRIPE_SECRET_KEY heeft geen ondersteund formaat.";
   return null;
+}
+
+function transactionalEmailConfigError() {
+  if (!transactionalEmailApiUrl || !transactionalEmailApiKey) return "Peymail is nog niet geconfigureerd.";
+  try {
+    const url = new URL(transactionalEmailApiUrl);
+    if (!["http:", "https:"].includes(url.protocol) || url.username || url.password || url.search || url.hash) {
+      return "Peymail-configuratie is ongeldig.";
+    }
+    if (isProduction && url.protocol !== "https:") return "Peymail moet HTTPS gebruiken.";
+  } catch {
+    return "Peymail-configuratie is ongeldig.";
+  }
+  if (!validEmail(contactNotificationEmail)) return "Het e-mailadres voor contactmeldingen is ongeldig.";
+  return "";
 }
 
 export function readDonationAmountCents(value) {
@@ -473,6 +491,80 @@ function readRawBody(request, maxBytes = 1024 * 1024) {
 function validEmail(value) { return typeof value === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) && value.length <= 254; }
 function validName(value) { return typeof value === "string" && value.trim().length >= 1 && value.trim().length <= 80; }
 function validPassword(value) { return typeof value === "string" && value.length >= 12 && value.length <= 128; }
+
+function escapeEmailHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function contactConfirmationContent(name) {
+  const firstName = escapeEmailHtml(name);
+  return {
+    subject: "We hebben je bericht ontvangen · Land van Jan",
+    text: `Hoi ${name},\n\nBedankt voor je bericht aan Land van Jan. We hebben het goed ontvangen en komen zo snel mogelijk bij je terug.\n\nHartelijke groet,\nLand van Jan\nHuissen`,
+    html: `<main style="font-family:Arial,sans-serif;line-height:1.6;color:#143827"><p>Hoi ${firstName},</p><p>Bedankt voor je bericht aan Land van Jan. We hebben het goed ontvangen en komen zo snel mogelijk bij je terug.</p><p>Hartelijke groet,<br><strong>Land van Jan</strong><br>Huissen</p></main>`,
+  };
+}
+
+function contactNotificationContent({ name, email, subject, message }) {
+  return {
+    subject: `Nieuw contactbericht: ${subject}`,
+    text: `Nieuw contactbericht via landvanjan.com\n\nNaam: ${name}\nE-mail: ${email}\nOnderwerp: ${subject}\n\nBericht:\n${message}`,
+    html: `<main style="font-family:Arial,sans-serif;line-height:1.6;color:#143827"><p><strong>Nieuw contactbericht via landvanjan.com</strong></p><p><strong>Naam:</strong> ${escapeEmailHtml(name)}<br><strong>E-mail:</strong> ${escapeEmailHtml(email)}<br><strong>Onderwerp:</strong> ${escapeEmailHtml(subject)}</p><p><strong>Bericht:</strong><br>${escapeEmailHtml(message).replaceAll("\n", "<br>")}</p></main>`,
+  };
+}
+
+async function queueTransactionalEmail({ idempotencyKey, recipient, name, subject, html, text, category, entityId }) {
+  const configurationError = transactionalEmailConfigError();
+  if (configurationError) return { state: "not_configured" };
+  try {
+    const response = await fetch(`${transactionalEmailApiUrl}/messages`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${transactionalEmailApiKey}`,
+        "Content-Type": "application/json",
+        "Idempotency-Key": idempotencyKey,
+      },
+      body: JSON.stringify({
+        mode: "content",
+        to: [{ email: recipient, name }],
+        subject,
+        html,
+        text,
+        category,
+        metadata: { sourceEvent: "contact.submitted", entityId },
+        sendAt: null,
+      }),
+      signal: AbortSignal.timeout(6500),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) return { state: "failed", code: String(result?.error?.code || "gateway_error").slice(0, 80) };
+    return { state: "queued", messageId: typeof result.messageId === "string" ? result.messageId : null };
+  } catch {
+    return { state: "failed", code: "network_error" };
+  }
+}
+
+async function queueContactNotifications(contact, contactId) {
+  const confirmation = contactConfirmationContent(contact.name);
+  const notification = contactNotificationContent(contact);
+  const [confirmationResult, notificationResult] = await Promise.all([
+    queueTransactionalEmail({
+      idempotencyKey: `contact-confirmation:${contactId}:v1`, recipient: contact.email, name: contact.name,
+      ...confirmation, category: "contact-confirmation", entityId: contactId,
+    }),
+    queueTransactionalEmail({
+      idempotencyKey: `contact-notification:${contactId}:v1`, recipient: contactNotificationEmail, name: "Land van Jan",
+      ...notification, category: "contact-notification", entityId: contactId,
+    }),
+  ]);
+  return { confirmation: confirmationResult, notification: notificationResult, attemptedAt: new Date() };
+}
+
 async function hashPassword(password) {
   const salt = randomBytes(16).toString("base64url");
   const derived = await scrypt(password, salt, 64);
@@ -1511,7 +1603,7 @@ async function handleApi(request, response, pathname) {
     if (!allowAccountRate("contact-email", email, 4, 60 * 60 * 1000)) return sendApiError(response, 429, "Probeer later opnieuw.");
     const databaseHandle = await db();
     const now = new Date();
-    await databaseHandle.collection("contact_messages").insertOne({
+    const contactMessage = {
       name,
       email,
       subject,
@@ -1520,7 +1612,13 @@ async function handleApi(request, response, pathname) {
       privacyNoticeVersion: PRIVACY_NOTICE_VERSION,
       createdAt: now,
       retentionUntil: new Date(now.getTime() + 180 * 24 * 60 * 60 * 1000),
-    });
+    };
+    const saved = await databaseHandle.collection("contact_messages").insertOne(contactMessage);
+    const notifications = await queueContactNotifications(contactMessage, saved.insertedId.toString());
+    await databaseHandle.collection("contact_messages").updateOne(
+      { _id: saved.insertedId },
+      { $set: { emailNotifications: notifications } },
+    );
     return sendJson(response, 201, { ok: true, message: "Bedankt. Je bericht is veilig ontvangen." });
   }
   if (pathname === "/api/setup/status" && method === "GET") {
@@ -1530,6 +1628,7 @@ async function handleApi(request, response, pathname) {
         auth: "not_configured",
         adminBootstrap: "not_checked",
         billing: billingConfigError() ? "not_configured" : "waiting_for_database",
+        email: transactionalEmailConfigError() ? "not_configured" : "configured",
         privacyNoticeVersion: PRIVACY_NOTICE_VERSION,
         marketingConsentVersion: MARKETING_CONSENT_VERSION,
       });
@@ -1561,6 +1660,7 @@ async function handleApi(request, response, pathname) {
       auth: "ready",
       adminBootstrap: adminBootstrapState,
       billing,
+      email: transactionalEmailConfigError() ? "not_configured" : "configured",
       privacyNoticeVersion: PRIVACY_NOTICE_VERSION,
       marketingConsentVersion: MARKETING_CONSENT_VERSION,
     });

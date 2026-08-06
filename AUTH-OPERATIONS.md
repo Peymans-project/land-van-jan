@@ -117,6 +117,18 @@ expire after 400 days. Sessions expire after 14 days and Stripe event
 deduplication records after 90 days. Completed external-deletion job metadata
 expires after 30 days; pending jobs remain until cleanup succeeds.
 
+## Contact receipts via Peymail
+
+When `TRANSACTIONAL_EMAIL_API_URL` and the Land van Jan-specific
+`TRANSACTIONAL_EMAIL_API_KEY` are present in Railway, every accepted contact
+message queues two idempotent transactional messages through Peymail: a receipt
+for the visitor and a notification for `CONTACT_NOTIFICATION_EMAIL` (default:
+`contact@landvanjan.com`). The website never has Gmail credentials and never
+chooses a From address; Peymail binds the authenticated client to the approved
+Land van Jan sender. The original message is stored first, so a gateway outage
+never loses the contact request. Queue status is stored with the contact record
+for support without exposing it to visitors.
+
 ## Activities and registrations
 
 - `GET /api/activities` and `GET /api/activities/:activityId` — public,

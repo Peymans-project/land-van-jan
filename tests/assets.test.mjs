@@ -64,6 +64,31 @@ test('archives every supplied photo with complete curation metadata', async () =
   }
 });
 
+test('keeps the August orchard curation as permanent responsive assets', async () => {
+  const archive = path.join(root, 'public', 'images', 'originals', '2026-08-06');
+  const manifest = JSON.parse(await readFile(path.join(archive, 'manifest.json'), 'utf8'));
+  assert.equal(manifest.assets.length, 5);
+
+  for (const asset of manifest.assets) {
+    const source = path.join(root, 'public', asset.archivePath);
+    await access(source);
+    assert.equal((await stat(source)).size, asset.bytes);
+    const bytes = await readFile(source);
+    assert.equal(createHash('sha256').update(bytes).digest('hex'), asset.sha256);
+    assert.match(asset.archivePath, /^\/images\/originals\/2026-08-06\/[a-z-]+\.jpeg$/);
+    assert.ok(asset.alt && asset.focalPoint && asset.suggestedSection);
+  }
+
+  for (const filename of [
+    'boomgaard-wolkendek-480.webp', 'boomgaard-wolkendek-1024.webp',
+    'boomgaard-picknick-960.webp', 'kas-zomerlicht-960.webp',
+    'samenzijn-boomgaard-1024.webp', 'appeloogst-ladder-768.webp',
+  ]) {
+    await access(path.join(root, 'public', 'images', 'responsive', filename));
+    await access(path.join(root, 'dist', 'client', 'images', 'responsive', filename));
+  }
+});
+
 test('archives both supplied videos and deploys optimized muted playback assets', async () => {
   const manifest = JSON.parse(await readFile(path.join(root, 'docs', 'video-assets-2026-08-02.json'), 'utf8'));
   assert.equal(manifest.assets.length, 2);

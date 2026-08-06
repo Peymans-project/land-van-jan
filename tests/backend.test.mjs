@@ -207,12 +207,14 @@ test("liveness, readiness and setup status stay redacted and typed", async () =>
   assert.equal(setup.body.adminBootstrap, "not_checked");
   assert.equal(typeof setup.body.billing, "string");
   assert.equal(setup.body.billing, "not_configured");
+  assert.equal(setup.body.email, "not_configured");
   assert.match(setup.body.privacyNoticeVersion, /^\d{4}-\d{2}-\d{2}$/);
   assert.match(setup.body.marketingConsentVersion, /^\d{4}-\d{2}-\d{2}$/);
   assert.deepEqual(Object.keys(setup.body).sort(), [
     "adminBootstrap",
     "auth",
     "billing",
+    "email",
     "marketingConsentVersion",
     "privacyNoticeVersion",
   ]);
@@ -258,6 +260,22 @@ test("contact and registration require the advertised privacy notice version", a
   });
   assert.equal(currentRegistrationVersion.status, 400);
   assert.doesNotMatch(currentRegistrationVersion.body.error, /actuele privacyverklaring/i);
+});
+
+test("contact messages queue only idempotent server-side Peymail notifications", () => {
+  const routeStart = serverSource.indexOf('if (pathname === "/api/contact" && method === "POST") {');
+  const routeEnd = serverSource.indexOf('if (pathname === "/api/setup/status" && method === "GET") {', routeStart);
+  const route = serverSource.slice(routeStart, routeEnd);
+  assert.match(route, /await databaseHandle\.collection\("contact_messages"\)\.insertOne/);
+  assert.match(route, /await queueContactNotifications\(contactMessage, saved\.insertedId\.toString\(\)\)/);
+  assert.match(route, /emailNotifications: notifications/);
+  assert.ok(route.indexOf('insertOne(contactMessage)') < route.indexOf('queueContactNotifications'));
+
+  assert.match(serverSource, /Authorization": `Bearer \$\{transactionalEmailApiKey\}`/);
+  assert.match(serverSource, /Idempotency-Key": idempotencyKey/);
+  assert.match(serverSource, /contact-confirmation:\$\{contactId\}:v1/);
+  assert.match(serverSource, /contact-notification:\$\{contactId\}:v1/);
+  assert.doesNotMatch(serverSource, /VITE_.*TRANSACTIONAL_EMAIL|NEXT_PUBLIC_.*TRANSACTIONAL_EMAIL/);
 });
 
 test("marketing opt-in stays bound to the advertised consent version", () => {
